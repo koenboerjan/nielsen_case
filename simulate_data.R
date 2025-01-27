@@ -17,7 +17,7 @@ simulate_dataset_male_female <- function(n_test, exposure_male, exposure_female,
   true_male_reach <- sum(male_response)/n_test*2
   true_female_reach <- sum(female_response)/n_test*2
   
-  cat(paste('Dataset for male and female devision has been generated, true parameters are: \n sample size: ', n_test, 
+  cat(paste('Dataset for male and female devision has been generated, input parameters are: \n sample size: ', n_test, 
               '\n exposure male:', exposure_male, '\n exposure female: ', exposure_female, 
               '\n correct estimation male: ', estimate_correct_male, '\n correct estimation female: ', 
               estimate_correct_female, '\nTrue sampled reach are, \n for male: ', true_male_reach, '\n for female: ',
