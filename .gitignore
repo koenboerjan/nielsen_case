@@ -5,3 +5,4 @@
 exposures_all/*
 other_data/*
 .DS_store
+.Rproj
