@@ -109,7 +109,6 @@ compute_segment_sizes_gender <- function(dataset, segmentation) {
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
   log_value <- 0
   segment_count <- dim(p_z_given_s)[1]
-  print(segment_count)
   for (i in 1:segment_count) {
     for (j in 1:2) {
       response_j <- ifelse(j == 1, 1, 0)
@@ -135,7 +134,7 @@ optimize_loglikelihood <- function(dataset, segmentation) {
   if (segmentation == 'gender') {
     reach_female <- exp(best_result$par[1])/(1+exp(best_result$par[1]))
     reach_male <- exp(best_result$par[2])/(1+exp(best_result$par[2]))
-    cat(paste('Reach of true segmants are ,\n for male: ', reach_male, '\n for female: ', reach_female, '\n with beta:', 
+    cat(paste('Reach of true segments are ,\n for male: ', reach_male, '\n for female: ', reach_female, '\n with beta:', 
               best_result$par[1], ' ', best_result$par[2]))
   }
   if (segmentation == 'age') {
