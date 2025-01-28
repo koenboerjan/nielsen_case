@@ -123,6 +123,7 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
   return(-1*log_value)
 }
 
+
 optimize_loglikelihood <- function(dataset, segmentation) {
   p_z_given_s <- compute_p_z_given_s(dataset, segmentation = segmentation)
   response_segments <- compute_segment_sizes_gender(dataset, segmentation = segmentation)
