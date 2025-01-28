@@ -179,3 +179,64 @@ optimize_loglikelihood <- function(dataset, segmentation) {
   
   return(best_result)
 }
+
+# ----------- Compute Fraction of Response and Compare to Prediction --------------------
+evaluation <- function(dataset, beta, segmentation) {
+  # Compute predicted probabilities
+  pred_probabilities <- exp(beta) / (1 + exp(beta))
+  
+  if (segmentation == "gender") {
+    # Fraction of response for estimated gender segments
+    response_for_estimated_seg <- dataset %>%
+      group_by(estimated_gender) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = case_when(
+        estimated_gender == "female" ~ pred_probabilities[1],
+        estimated_gender == "male" ~ pred_probabilities[2],
+        TRUE ~ NA_real_
+      ))
+    
+    # Fraction of response for true gender segments
+    response_for_true_seg <- dataset %>%
+      filter(!is.na(true_gender)) %>%
+      group_by(true_gender) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = case_when(
+        true_gender == "female" ~ pred_probabilities[1],
+        true_gender == "male" ~ pred_probabilities[2],
+        TRUE ~ NA_real_
+      ))
+  } else if (segmentation == "age") {
+    # Fraction of response for estimated age segments
+    response_for_estimated_seg <- dataset %>%
+      group_by(estimated_age) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = pred_probabilities)
+    
+    # Fraction of response for true age segments
+    response_for_true_seg <- dataset %>%
+      filter(!is.na(true_age)) %>%
+      group_by(true_age) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = pred_probabilities)
+  }
+  
+  return(list(
+    response_for_true_seg = response_for_true_seg,
+    response_for_estimated_seg = response_for_estimated_seg
+  ))
+}
+
+
