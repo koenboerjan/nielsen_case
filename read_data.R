@@ -1,7 +1,8 @@
 
 
 read_id_graph_demos <- function() {
-  read.csv("other_data/id_graph_demos_short.csv")
+  data <- read.csv("other_data/id_graph_demos_short.csv")
+  return (data)
 }
 
 read_panel_demos <- function() {
@@ -9,7 +10,28 @@ read_panel_demos <- function() {
 }
 
 read_universe_estimates <- function() {
-  read.csv("other_data/universe_estimates.csv")
+  universe_estimates <- read.csv("other_data/universe_estimates.csv")
+  universe_estimates <- universe_estimates %>%
+    mutate(
+      gender_bucket = ifelse(gender_bucket == "M", 1, 0),
+      age_bucket = case_when(
+        age_bucket == "18-20" ~ 1,
+        age_bucket == "21-24" ~ 1,
+        age_bucket == "25-29" ~ 1,
+        age_bucket == "30-34" ~ 1,
+        age_bucket == "35-39" ~ 2,
+        age_bucket == "40-44" ~ 2,
+        age_bucket == "45-49" ~ 2,
+        age_bucket == "50-54" ~ 3,
+        age_bucket == "55-59" ~ 3,
+        age_bucket == "60-64" ~ 3,
+        age_bucket == "65+" ~ 4
+      ) 
+    ) %>% 
+    group_by(gender_bucket, age_bucket, demo3_bucket) %>%
+    summarise(num_persons = sum(num_persons), tot_persons = mean(tot_persons), .groups = "keep")
+  
+  return (universe_estimates)
 }
 
 read_campaign_details <- function() {
@@ -67,6 +89,27 @@ read_exposures <- function() {
   
   colnames(merged_exposure_data) <- c('person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 'true_age', 
                                       'true_gender', 'true_demo', 'total_exposures', 'response')
+  
+  # Standardize data types in `demographic_groups`
+  merged_exposure_data <- merged_exposure_data %>%
+    mutate(
+      estimated_gender = ifelse(estimated_gender == "male", 1, 0),
+      estimated_demo = as.numeric(estimated_demo),
+      estimated_age = case_when(
+        estimated_age == "lt35" ~ 1,
+        estimated_age == "gt35_lt50" ~ 2,
+        estimated_age == "gt50_lt65" ~ 3,
+        estimated_age == "gt65" ~ 4
+      ),
+      true_gender = ifelse(true_gender == "male", 1, 0),
+      true_demo = as.numeric(true_demo),
+      true_age = case_when(
+        true_age == "lt35" ~ 1,
+        true_age == "gt35_lt50" ~ 2,
+        true_age == "gt50_lt65" ~ 3,
+        true_age == "gt65" ~ 4
+      )
+    )
   return(merged_exposure_data)
 }
 
