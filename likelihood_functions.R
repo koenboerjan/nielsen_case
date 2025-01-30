@@ -83,7 +83,7 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
 # ----------------------------- Compute Conditional Probabilities P(Z|S) -----------------------------
 compute_p_z_given_s <- function(dataset, segmentation) {
   # Clean missing true data
-  dataset <- dataset %>% filter(complete.cases(.))
+  dataset <- dataset %>% filter(!is.na(true_age))
   
   # Calculate conditional probabilities
   if (segmentation == "gender") {
@@ -184,23 +184,23 @@ compute_segment_sizes <- function(dataset, segmentation) {
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
   log_value <- 0
   segment_count <- dim(p_z_given_s)[1]
-
+  
   for (i in 1:segment_count) {
     for (j in 1:2) {
       response_j <- ifelse(j == 1, 1, 0)
       value_segment <- 0
-
+      
       for (s in 1:segment_count) {
         e_z_beta <- exp(beta[s])
         value_segment <- value_segment + p_z_given_s[i, s] *
           (((e_z_beta / (1 + e_z_beta))^response_j) *
              ((1 / (1 + e_z_beta))^(1 - response_j)))
       }
-
+      
       log_value <- log_value + segment_responses[i, j] * log(value_segment)
     }
   }
-
+  
   return(-log_value)
 }
 
@@ -220,7 +220,10 @@ optimize_loglikelihood <- function(dataset, segmentation, with_prior) {
     par = initial_par,
     fn = loglikelihood_segments_based,
     p_z_given_s = p_z_given_s,
-    segment_responses = response_segments
+    segment_responses = response_segments,
+    method = "L-BFGS-B",     
+    lower = c(-10, -10),     
+    upper = c(0, 0)
   )
   
   if (segmentation == "gender") {
@@ -257,8 +260,8 @@ evaluation <- function(dataset, beta, segmentation) {
         .groups = 'drop'
       ) %>%
       mutate(predicted_probability = case_when(
-        estimated_gender == "female" ~ pred_probabilities[1],
-        estimated_gender == "male" ~ pred_probabilities[2],
+        estimated_gender == "0" ~ pred_probabilities[1],
+        estimated_gender == "1" ~ pred_probabilities[2],
         TRUE ~ NA_real_
       ))
     
@@ -271,8 +274,8 @@ evaluation <- function(dataset, beta, segmentation) {
         .groups = 'drop'
       ) %>%
       mutate(predicted_probability = case_when(
-        true_gender == "female" ~ pred_probabilities[1],
-        true_gender == "male" ~ pred_probabilities[2],
+        true_gender == "0" ~ pred_probabilities[1],
+        true_gender == "1" ~ pred_probabilities[2],
         TRUE ~ NA_real_
       ))
   } else if (segmentation == "age") {
@@ -289,6 +292,25 @@ evaluation <- function(dataset, beta, segmentation) {
     response_for_true_seg <- dataset %>%
       filter(!is.na(true_age)) %>%
       group_by(true_age) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = pred_probabilities)
+  } else if (segmentation == "demo") {
+    # Fraction of response for estimated demo segments
+    response_for_estimated_seg <- dataset %>%
+      group_by(estimated_demo) %>%
+      summarise(
+        fraction_response = mean(response, na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(predicted_probability = pred_probabilities)
+    
+    # Fraction of response for true age segments
+    response_for_true_seg <- dataset %>%
+      filter(!is.na(true_demo)) %>%
+      group_by(true_demo) %>%
       summarise(
         fraction_response = mean(response, na.rm = TRUE),
         .groups = 'drop'
