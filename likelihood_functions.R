@@ -115,33 +115,33 @@ compute_p_z_given_s <- function(dataset, segmentation) {
   return(p_z_given_s)
 }
 
-# ----------------------------- Compute Log Likelihood -----------------------------
-loglikelihood <- function(beta) {
-  print(beta)
-  log_value <- 0
-  
-  for (i in 1:n_test) {
-    # if (male[i] == 1) {
-    #   test_exposure_data[i] <- 0
-    # }
-    log_value_between <- 0
-    
-    for (s in 1:2) {
-      e_z_beta <- exp(beta[s])
-      log_value_between <- log_value_between + expect_indicator[i, s] * 
-        (((e_z_beta / (1 + e_z_beta))^test_exposure_data[i]) * 
-           ((1 / (1 + e_z_beta))^(1 - test_exposure_data[i])))
-    }
-    
-    log_value <- log_value + log(log_value_between)
-  }
-  
-  print(log_value)
-  return(-log_value)
-}
+# # ----------------------------- Compute Log Likelihood -----------------------------
+# loglikelihood <- function(beta) {
+#   print(beta)
+#   log_value <- 0
+#   
+#   for (i in 1:n_test) {
+#     # if (male[i] == 1) {
+#     #   test_exposure_data[i] <- 0
+#     # }
+#     log_value_between <- 0
+#     
+#     for (s in 1:2) {
+#       e_z_beta <- exp(beta[s])
+#       log_value_between <- log_value_between + expect_indicator[i, s] * 
+#         (((e_z_beta / (1 + e_z_beta))^test_exposure_data[i]) * 
+#            ((1 / (1 + e_z_beta))^(1 - test_exposure_data[i])))
+#     }
+#     
+#     log_value <- log_value + log(log_value_between)
+#   }
+#   
+#   print(log_value)
+#   return(-log_value)
+# }
 
 # ----------------------------- Compute Segment Sizes -----------------------------
-compute_segment_sizes_gender <- function(dataset, segmentation) {
+compute_segment_sizes <- function(dataset, segmentation) {
   
   # Summarize response and non-response counts
   if (segmentation == "gender") {
@@ -180,29 +180,29 @@ compute_segment_sizes_gender <- function(dataset, segmentation) {
   return(mat_segments_response)
 }
 # 
-# # ----------------------------- Compute Log Likelihood for Segments -----------------------------
-# loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
-#   log_value <- 0
-#   segment_count <- dim(p_z_given_s)[1]
-#   
-#   for (i in 1:segment_count) {
-#     for (j in 1:2) {
-#       response_j <- ifelse(j == 1, 1, 0)
-#       value_segment <- 0
-#       
-#       for (s in 1:segment_count) {
-#         e_z_beta <- exp(beta[s])
-#         value_segment <- value_segment + p_z_given_s[i, s] * 
-#           (((e_z_beta / (1 + e_z_beta))^response_j) * 
-#              ((1 / (1 + e_z_beta))^(1 - response_j)))
-#       }
-#       
-#       log_value <- log_value + segment_responses[i, j] * log(value_segment)
-#     }
-#   }
-#   
-#   return(-log_value)
-# }
+# ----------------------------- Compute Log Likelihood for Segments -----------------------------
+loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
+  log_value <- 0
+  segment_count <- dim(p_z_given_s)[1]
+
+  for (i in 1:segment_count) {
+    for (j in 1:2) {
+      response_j <- ifelse(j == 1, 1, 0)
+      value_segment <- 0
+
+      for (s in 1:segment_count) {
+        e_z_beta <- exp(beta[s])
+        value_segment <- value_segment + p_z_given_s[i, s] *
+          (((e_z_beta / (1 + e_z_beta))^response_j) *
+             ((1 / (1 + e_z_beta))^(1 - response_j)))
+      }
+
+      log_value <- log_value + segment_responses[i, j] * log(value_segment)
+    }
+  }
+
+  return(-log_value)
+}
 
 # ----------------------------- Optimize Log Likelihood -----------------------------
 optimize_loglikelihood <- function(dataset, segmentation, with_prior) {
