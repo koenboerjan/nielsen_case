@@ -1,7 +1,7 @@
 
 
 read_id_graph_demos <- function() {
-  data <- read.csv("other_data/id_graph_demos_short.csv")
+  data <- read.csv("other_data/id_graph_demos.csv")
   return (data)
 }
 
@@ -42,7 +42,7 @@ read_site_details <- function() {
   read.csv("other_data/site_details.csv")
 }
 
-read_exposures <- function() {
+read_exposures <- function(site_id_input = NA, platform_input = NA) {
   id_graph_demos <- read_id_graph_demos()
   panel_demos <- read_panel_demos()
   
@@ -62,14 +62,25 @@ read_exposures <- function() {
     }
     return(data)
   }
-  
+ 
   # Combine all exposures
   all_exposures <- exposure_files %>%
     map_dfr(read_and_standardize)
   
+  
+  if(!is.na(site_id_input)) {
+    all_exposures <- all_exposures %>%
+      filter(site_id == site_id_input)
+  }
+  
+  if(!is.na(platform_input)) {
+    all_exposures <- all_exposures %>%
+      filter(platform == platform_input)
+  }
+  
   # Aggregate exposure data
   aggregated_exposure <- all_exposures %>%
-    group_by(person_id) %>%
+    group_by(person_id, site_id, platform) %>%
     summarise(
       total_exposures = sum(num_exposures, na.rm = TRUE),
       .groups = 'drop'
@@ -85,10 +96,11 @@ read_exposures <- function() {
   ) %>%
     mutate(total_exposures = coalesce(total_exposures, 0)) %>%  # Replace NA with 0
     mutate(response = ifelse(total_exposures > 0, 1, 0))       # Define binary response
-  
+
+
   
   colnames(merged_exposure_data) <- c('person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 'true_age', 
-                                      'true_gender', 'true_demo', 'total_exposures', 'response')
+                                      'true_gender', 'true_demo', 'site_id', 'platform', 'total_exposures', 'response')
   
   # Standardize data types in `demographic_groups`
   merged_exposure_data <- merged_exposure_data %>%
