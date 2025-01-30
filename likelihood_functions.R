@@ -142,7 +142,7 @@ compute_p_z_given_s <- function(dataset, segmentation) {
 
 # ----------------------------- Compute Segment Sizes -----------------------------
 compute_segment_sizes <- function(dataset, segmentation) {
-  
+  dataset <- dataset %>% filter(is.na(true_gender) | is.na(true_age) | is.na(true_demo))
   # Summarize response and non-response counts
   if (segmentation == "gender") {
     segments_response <- dataset %>%
@@ -179,68 +179,93 @@ compute_segment_sizes <- function(dataset, segmentation) {
   
   return(mat_segments_response)
 }
-# 
-# ----------------------------- Compute Log Likelihood for Segments -----------------------------
-loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
-  log_value <- 0
-  segment_count <- dim(p_z_given_s)[1]
 
-  for (i in 1:segment_count) {
-    for (j in 1:2) {
-      response_j <- ifelse(j == 1, 1, 0)
-      value_segment <- 0
-
-      for (s in 1:segment_count) {
-        e_z_beta <- exp(beta[s])
-        value_segment <- value_segment + p_z_given_s[i, s] *
-          (((e_z_beta / (1 + e_z_beta))^response_j) *
-             ((1 / (1 + e_z_beta))^(1 - response_j)))
-      }
-
-      log_value <- log_value + segment_responses[i, j] * log(value_segment)
-    }
+#--------------------------------Compute True Segment Sizes-------------------------------------
+compute_true_segment_sizes<-function(dataset,segmentation){
+  #Delete the observations with NA values
+  dataset <- dataset %>% filter(complete.cases(.))
+  # Summarize response and non-response counts
+  if (segmentation == "gender") {
+    segments_response <- dataset %>%
+      group_by(true_gender) %>%
+      summarise(
+        response_count = sum(response),
+        no_response_count = sum(1 - response),
+        .groups = 'drop'
+      )
+  } else if (segmentation == "age") {
+    segments_response <- dataset %>%
+      group_by(true_age) %>%
+      summarise(
+        response_count = sum(response),
+        no_response_count = sum(1 - response),
+        .groups = 'drop'
+      )
+  } else if (segmentation == "demo") {
+    segments_response <- dataset %>%
+      group_by(true_demo) %>%
+      summarise(
+        response_count = sum(response),
+        no_response_count = sum(1 - response),
+        .groups = 'drop'
+      )
   }
-
-  return(-log_value)
-}
-
-# ----------------------------- Optimize Log Likelihood -----------------------------
-optimize_loglikelihood <- function(dataset, segmentation, with_prior) {
-  if (with_prior) {
-    p_z_given_s <- compute_p_z_given_s_including_prior(dataset, segmentation)
-  } else {
-    p_z_given_s <- compute_p_z_given_s(dataset, segmentation)
-  }
-  response_segments <- compute_segment_sizes(dataset, segmentation)
   
-  segment_count <- dim(p_z_given_s)[1]
-  initial_par <- rep(0, segment_count)
-  
-  best_result <- optim(
-    par = initial_par,
-    fn = loglikelihood_segments_based,
-    p_z_given_s = p_z_given_s,
-    segment_responses = response_segments
+  mat_segments_response <- matrix(
+    c(segments_response$response_count, segments_response$no_response_count),
+    ncol = 2
   )
   
-  if (segmentation == "gender") {
-    reach_female <- exp(best_result$par[1]) / (1 + exp(best_result$par[1]))
-    reach_male <- exp(best_result$par[2]) / (1 + exp(best_result$par[2]))
-    cat(paste(
-      "Reach of true segments are:",
-      "\nFor male:", reach_male,
-      "\nFor female:", reach_female,
-      "\nWith beta:", best_result$par[1], best_result$par[2]
-    ))
-  } else if (segmentation == "age") {
-    reach <- sapply(1:4, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
-    cat(paste("Reach for age segments:\n", paste(reach, collapse = "\n")))
-  } else if (segmentation == "demo") {
-    reach <- sapply(1:5, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
-    cat(paste("Reach for demo3 segments:\n", paste(reach, collapse = "\n")))
+  print(segments_response)
+  
+  return(mat_segments_response)
+}
+# 
+# ----------------------------- Compute Log Likelihood for Segments -----------------------------
+loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_segments) {
+  log_value_est <- 0
+  log_value_true <- 0
+  segment_count <- dim(p_z_given_s)[1]
+  
+  for (i in 1:segment_count) {
+    value_segment <- 0
+    for (j in 1:2) {
+      response_j <- ifelse(j == 1, 1, 0)
+      
+      for (s in 1:segment_count) {
+        e_z_beta <- plogis(beta[s])  # Use plogis to prevent numerical issues
+        value_segment <- value_segment + p_z_given_s[i, s] *
+          (((e_z_beta^response_j) * ((1 - e_z_beta)^(1 - response_j))))
+      }
+      
+      # Ensure value_segment > 0 before log
+      if (value_segment > 0) {
+        log_value_est <- log_value_est + segment_responses[i, j] * log(value_segment)
+      } else {
+        log_value_est <- log_value_est + segment_responses[i, j] * log(1e-10)  # Small number to avoid log(0)
+      }
+    }
   }
   
-  return(best_result)
+  for (z in 1:segment_count) {
+    value_segment <- 0  # Reset value_segment inside the loop
+    for (j in 1:2) {
+      response_j <- ifelse(j == 1, 1, 0)
+      e_z_beta <- plogis(beta[z])  # Use plogis
+      value_segment <- value_segment + (((e_z_beta^response_j) * ((1 - e_z_beta)^(1 - response_j))))
+    }
+    
+    if (value_segment > 0) {
+      log_value_true <- log_value_true + true_segments[z, j] * log(value_segment)
+    } else {
+      log_value_true <- log_value_true + true_segments[z, j] * log(1e-10)
+    }
+  }
+  
+  log_value_est <- log_value_est / sum(segment_responses)
+  log_value_true <- log_value_true / sum(true_segments)
+  
+  return(-0.1 * log_value_true - log_value_est)
 }
 
 # ----------- Compute Fraction of Response and Compare to Prediction --------------------
