@@ -25,7 +25,7 @@ compute_reach_estimated_segments <- function(dataset) {
 }
 
 # ----------------------------- Compute Conditional Probabilities including prior (Z|S) -----------------------------
-compute_p_z_given_s_including_prior <- function(dataset, segmentation, fraction_gender_1) {
+compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
   # Collect universe true priors
   universe_estimates <- read_universe_estimates()
   
