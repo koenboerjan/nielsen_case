@@ -338,3 +338,41 @@ evaluation <- function(dataset, beta, segmentation) {
 }
 
 
+#------------ Compute True Frequency --------------------------------
+compute_true_frequency <- function(dataset, segmentation) {
+  
+  # Map user-friendly segmentation input to the correct column names
+  column_mapping <- list(
+    "gender" = "estimated_gender",
+    "age" = "estimated_age",
+    "demo" = "estimated_demo"
+  )
+
+  # Get the actual column name from mapping
+  segmentation_col <- column_mapping[[segmentation]]
+  
+  # Remove rows without valid exposures
+  dataset <- dataset %>%
+    filter(!is.na(total_exposures) & total_exposures > 0)
+  
+  # Sum exposures per segment
+  total_exposures_segment <- dataset %>%
+    group_by(!!sym(segmentation_col)) %>%
+    summarise(total_exposures = sum(total_exposures, na.rm = TRUE), .groups = 'drop')
+  
+  # Find reach per segment (unique users)
+  reach_segment <- dataset %>%
+    group_by(!!sym(segmentation_col)) %>%
+    summarise(reach = n_distinct(person_id), .groups = 'drop')
+  
+  # Merge and calculate frequency
+  frequency_data <- merge(total_exposures_segment, reach_segment, by = segmentation_col)
+  frequency_data <- frequency_data %>%
+    mutate(frequency = total_exposures / reach)
+  
+  # Print and return results
+  print(frequency_data)
+  return(frequency_data)
+}
+
+
