@@ -4,7 +4,7 @@ simulate_dataset <- function(n_test, fraction_per_segment, exposure_per_segment,
   set.seed(seed_number)
   segments_count <- length(fraction_per_segment)
   
-  if (sum(fraction_per_segment) != 1 || sum(estimation_correctness) != segments_count) {
+  if (sum(fraction_per_segment) != 1 || sum(rowSums(estimation_correctness)) != segments_count) {
     print(sum(estimation_correctness))
     print(sum(fraction_per_segment))
     stop("Fractions of segments do not add up to 1")
