@@ -28,12 +28,12 @@ compute_reach_estimated_segments <- function(dataset) {
 compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
   # Collect universe true priors
   universe_estimates <- read_universe_estimates()
-  
-  # Clean missing true data
-  dataset <- dataset %>% filter(complete.cases(.))
-  
+
   # Calculate conditional probabilities
   if (segmentation == "gender") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_gender))
+    
     p_z <- universe_estimates %>%
       group_by(gender_bucket) %>%
       summarise(count = sum(num_persons)) %>%
@@ -44,6 +44,9 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_gender) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "age") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_age))
+    
     p_z <- universe_estimates %>%
       group_by(age_bucket) %>%
       summarise(count = sum(num_persons)) %>%
@@ -54,6 +57,9 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_age) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "demo") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_demo))
+    
     p_z <- universe_estimates %>%
       group_by(demo3_bucket) %>%
       summarise(count = sum(num_persons)) %>%
@@ -75,29 +81,36 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
   p_s_matrix <- t(matrix(rep((p_s**-1),dim_matrix), ncol = dim_matrix))
   p_z_given_s <- t(p_s_and_z*p_s_matrix)
   
-  print(p_z_given_s)
+  # print(p_z_given_s)
   return(p_z_given_s)
 }
 
 
 # ----------------------------- Compute Conditional Probabilities P(Z|S) -----------------------------
 compute_p_z_given_s <- function(dataset, segmentation) {
-  # Clean missing true data
-  
   # Calculate conditional probabilities
   if (segmentation == "gender") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_gender))
+    
     conditional_probs <- dataset %>%
       group_by(estimated_gender, true_gender) %>%
       summarise(count = n(), .groups = 'drop') %>%
       group_by(estimated_gender) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "age") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_age))
+    
     conditional_probs <- dataset %>%
       group_by(estimated_age, true_age) %>%
       summarise(count = n(), .groups = 'drop') %>%
       group_by(estimated_age) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "demo") {
+    # Clean missing true data
+    dataset <- dataset %>% filter(!is.na(true_demo))
+    
     conditional_probs <- dataset %>%
       group_by(estimated_demo, true_demo) %>%
       summarise(count = n(), .groups = 'drop') %>%
@@ -110,7 +123,7 @@ compute_p_z_given_s <- function(dataset, segmentation) {
   
   p_z_given_s <- t(conditional_probs_matrix)
   
-  print(p_z_given_s)
+  # print(p_z_given_s)
   return(p_z_given_s)
 }
 
@@ -174,7 +187,7 @@ compute_segment_sizes <- function(dataset, segmentation) {
     ncol = 2
   )
   
-  print(segments_response)
+  # print(segments_response)
   
   return(mat_segments_response)
 }
@@ -324,46 +337,6 @@ evaluation <- function(dataset, beta, segmentation) {
   ))
 }
 
-# ----------- Compute Predicted Frequency --------------------
-compute_predicted_frequency <- function(dataset, beta, segmentation) {
-  
-  # Compute total impressions
-  total_impressions <- sum(dataset$total_exposures)
-  
-  predicted_reach <- exp(beta) / (1 + exp(beta))
-  
-  # Compute predicted frequency for each segment
-  predicted_frequency <- total_impressions / sum(predicted_reach)
-  
-  cat("Predicted Frequency:", predicted_frequency, "\n")
-  return(predicted_frequency)
-}
-
-
-
-compute_predicted_frequency <- function(dataset, beta, segmentation) {
-  
-  # Compute total impressions per segment
-  total_impressions <- dataset %>%
-    group_by(estimated_gender) %>%
-    summarise(total_exposures = sum(total_exposures, na.rm = TRUE), .groups = 'drop')
-  
-  # Compute predicted reach
-  predicted_reach <- exp(beta) / (1 + exp(beta))
-  
-  # Ensure segment count matches reach values
-  if (length(predicted_reach) != nrow(total_impressions)) {
-    stop("Mismatch between reach predictions and segment counts!")
-  }
-  
-  # Compute predicted frequency per segment
-  total_impressions$predicted_frequency <- total_impressions$total_exposures / predicted_reach
-  
-  # Display results
-  print(total_impressions)
-  
-  return(total_impressions)
-}
 
 #------------ Compute True Frequency --------------------------------
 compute_true_frequency <- function(dataset, segmentation) {
