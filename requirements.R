@@ -8,4 +8,5 @@ install_requirements <- function() {
   source("simulate_data.R")
   source("read_data.R")
   source("obtain_insights_data.R")
+  source("simulation_study.R")
 }

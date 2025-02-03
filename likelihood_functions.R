@@ -25,7 +25,7 @@ compute_reach_estimated_segments <- function(dataset) {
 }
 
 # ----------------------------- Compute Conditional Probabilities including prior (Z|S) -----------------------------
-compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
+compute_p_z_given_s_including_prior <- function(dataset, segmentation, fraction_gender_1) {
   # Collect universe true priors
   universe_estimates <- read_universe_estimates()
   
@@ -83,7 +83,7 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
 # ----------------------------- Compute Conditional Probabilities P(Z|S) -----------------------------
 compute_p_z_given_s <- function(dataset, segmentation) {
   # Clean missing true data
-  dataset <- dataset %>% filter(!is.na(true_age))
+  dataset <- dataset %>% filter(complete.cases(.) || !is.na(true_age))
   
   # Calculate conditional probabilities
   if (segmentation == "gender") {
@@ -205,7 +205,7 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
 }
 
 # ----------------------------- Optimize Log Likelihood -----------------------------
-optimize_loglikelihood <- function(dataset, segmentation, with_prior) {
+optimize_loglikelihood <- function(dataset, segmentation, with_prior, print_result = TRUE) {
   if (with_prior) {
     p_z_given_s <- compute_p_z_given_s_including_prior(dataset, segmentation)
   } else {
@@ -225,22 +225,23 @@ optimize_loglikelihood <- function(dataset, segmentation, with_prior) {
     lower = c(-10, -10),     
     upper = c(0, 0)
   )
-  
-  if (segmentation == "gender") {
-    reach_female <- exp(best_result$par[1]) / (1 + exp(best_result$par[1]))
-    reach_male <- exp(best_result$par[2]) / (1 + exp(best_result$par[2]))
-    cat(paste(
-      "Reach of true segments are:",
-      "\nFor male:", reach_male,
-      "\nFor female:", reach_female,
-      "\nWith beta:", best_result$par[1], best_result$par[2]
-    ))
-  } else if (segmentation == "age") {
-    reach <- sapply(1:4, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
-    cat(paste("Reach for age segments:\n", paste(reach, collapse = "\n")))
-  } else if (segmentation == "demo") {
-    reach <- sapply(1:5, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
-    cat(paste("Reach for demo3 segments:\n", paste(reach, collapse = "\n")))
+  if (print_result) {
+    if (segmentation == "gender") {
+      reach_female <- exp(best_result$par[1]) / (1 + exp(best_result$par[1]))
+      reach_male <- exp(best_result$par[2]) / (1 + exp(best_result$par[2]))
+      cat(paste(
+        "Reach of true segments are:",
+        "\nFor male:", reach_male,
+        "\nFor female:", reach_female,
+        "\nWith beta:", best_result$par[1], best_result$par[2]
+      ))
+    } else if (segmentation == "age") {
+      reach <- sapply(1:4, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
+      cat(paste("Reach for age segments:\n", paste(reach, collapse = "\n")))
+    } else if (segmentation == "demo") {
+      reach <- sapply(1:5, function(i) exp(best_result$par[i]) / (1 + exp(best_result$par[i])))
+      cat(paste("Reach for demo3 segments:\n", paste(reach, collapse = "\n")))
+    }
   }
   
   return(best_result)
