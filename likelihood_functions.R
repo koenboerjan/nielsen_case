@@ -83,7 +83,6 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
 # ----------------------------- Compute Conditional Probabilities P(Z|S) -----------------------------
 compute_p_z_given_s <- function(dataset, segmentation) {
   # Clean missing true data
-  dataset <- dataset %>% filter(complete.cases(.) || !is.na(true_age))
   
   # Calculate conditional probabilities
   if (segmentation == "gender") {
@@ -323,6 +322,84 @@ evaluation <- function(dataset, beta, segmentation) {
     response_for_true_seg = response_for_true_seg,
     response_for_estimated_seg = response_for_estimated_seg
   ))
+}
+
+# ----------- Compute Predicted Frequency --------------------
+compute_predicted_frequency <- function(dataset, beta, segmentation) {
+  
+  # Compute total impressions
+  total_impressions <- sum(dataset$total_exposures)
+  
+  predicted_reach <- exp(beta) / (1 + exp(beta))
+  
+  # Compute predicted frequency for each segment
+  predicted_frequency <- total_impressions / sum(predicted_reach)
+  
+  cat("Predicted Frequency:", predicted_frequency, "\n")
+  return(predicted_frequency)
+}
+
+
+
+compute_predicted_frequency <- function(dataset, beta, segmentation) {
+  
+  # Compute total impressions per segment
+  total_impressions <- dataset %>%
+    group_by(estimated_gender) %>%
+    summarise(total_exposures = sum(total_exposures, na.rm = TRUE), .groups = 'drop')
+  
+  # Compute predicted reach
+  predicted_reach <- exp(beta) / (1 + exp(beta))
+  
+  # Ensure segment count matches reach values
+  if (length(predicted_reach) != nrow(total_impressions)) {
+    stop("Mismatch between reach predictions and segment counts!")
+  }
+  
+  # Compute predicted frequency per segment
+  total_impressions$predicted_frequency <- total_impressions$total_exposures / predicted_reach
+  
+  # Display results
+  print(total_impressions)
+  
+  return(total_impressions)
+}
+
+#------------ Compute True Frequency --------------------------------
+compute_true_frequency <- function(dataset, segmentation) {
+  
+  # Map user-friendly segmentation input to the correct column names
+  column_mapping <- list(
+    "gender" = "estimated_gender",
+    "age" = "estimated_age",
+    "demo" = "estimated_demo"
+  )
+
+  # Get the actual column name from mapping
+  segmentation_col <- column_mapping[[segmentation]]
+  
+  # Remove rows without valid exposures
+  dataset <- dataset %>%
+    filter(!is.na(total_exposures) & total_exposures > 0)
+  
+  # Sum exposures per segment
+  total_exposures_segment <- dataset %>%
+    group_by(!!sym(segmentation_col)) %>%
+    summarise(total_exposures = sum(total_exposures, na.rm = TRUE), .groups = 'drop')
+  
+  # Find reach per segment (unique users)
+  reach_segment <- dataset %>%
+    group_by(!!sym(segmentation_col)) %>%
+    summarise(reach = n_distinct(person_id), .groups = 'drop')
+  
+  # Merge and calculate frequency
+  frequency_data <- merge(total_exposures_segment, reach_segment, by = segmentation_col)
+  frequency_data <- frequency_data %>%
+    mutate(frequency = total_exposures / reach)
+  
+  # Print and return results
+  print(frequency_data)
+  return(frequency_data)
 }
 
 
