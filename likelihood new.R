@@ -92,16 +92,25 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, t
   
 }
 
+#Clean environment
+rm(list = ls())
 
+#Load libraries and functions
+prepare_setup <- function() {
+  source("requirements.R")
+  install_requirements()
+}
+
+
+prepare_setup()
 
 
 # Load data
-real_dataset<-read_exposures()
+real_dataset<-read_exposures("3605181","MBL")
 conditional_probs <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'gender')
 segment_responses <- compute_segment_sizes(dataset = real_dataset, segmentation = 'gender')
 true_segments <- compute_true_segment_sizes(real_dataset, 'gender')
-print("DEBUG: true_segments matrix:")
-print(true_segments)
+
 segment_count <- dim(conditional_probs)[1]
 
 # Define empty dataframe to store results
@@ -184,3 +193,156 @@ ggplot(results_df, aes(x = pr_1_given_male, y = pr_1_given_female)) +
        y = "Estimated Pr(Response | Female)",
        color = "Distance to True Fraction") +
   theme_minimal()
+
+
+#Do the same for age
+conditional_probs_age <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'age')
+segment_responses_age <- compute_segment_sizes(dataset = real_dataset, segmentation = 'age')
+true_segments_age <- compute_true_segment_sizes(real_dataset, 'age')
+segment_count <- dim(conditional_probs_age)[1]
+
+# Define empty dataframe to store results
+results_age_df <- data.frame(true_weight = numeric(),
+                         est_weight = numeric(),
+                         pr_1_given_lt35 = numeric(),
+                         pr_1_given_gt35_lt50 = numeric(),
+                         pr_1_given_gt50_lt65=numeric(),
+                         pr_1_given_gt65=numeric())
+
+# Compute true response fractions
+true_fractions_age <- real_dataset %>% 
+  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
+  group_by(true_age, response) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(true_age) %>%
+  mutate(fraction = count / sum(count)) %>%
+  filter(response == 1) %>%  # Keep only response=1
+  select(true_age, fraction)
+
+print(true_fractions_age)
+
+# Grid search over different weight combinations
+for (true_weight in seq(1, 1000, by = 5)) {
+  for (est_weight in seq(1, 20, by = 5)) {
+    
+    # ⚠️ Randomize initial betas for each iteration to avoid local minimal
+    initial_betas <- rnorm(segment_count, mean = 0, sd = 1)
+    
+    maximization <- optim(
+      par = initial_betas,
+      fn = loglikelihood_segments_based,
+      p_z_given_s = conditional_probs_age,
+      segment_responses = segment_responses_age,
+      true_segments = true_segments_age,
+      true_weight = true_weight,
+      est_weight = est_weight,
+      control = list(maxit = 1000, reltol = 1e-6),
+      method = 'BFGS'
+    )
+    
+    optimal_betas <- maximization$par
+    print(paste("true_weight:", true_weight, "est_weight:", est_weight, 
+                "Beta:", paste(round(optimal_betas, 4), collapse = ", ")))
+    
+    pr_1_given_lt35 <- plogis(optimal_betas[1])
+    pr_1_given_gt35_lt50 <- plogis(optimal_betas[2])
+    pr_1_given_gt50_lt65 <- plogis(optimal_betas[3])
+    pr_1_given_gt65<-plogis(optimal_betas[4])
+    
+    
+    # Store results correctly in results_df
+    results_age_df <- rbind(results_age_df, data.frame(true_weight, est_weight, pr_1_given_lt35, pr_1_given_gt35_lt50,pr_1_given_gt50_lt65,
+                                               pr_1_given_gt65))
+  }
+}
+results_age_df <- results_age_df %>%
+  rowwise() %>%
+  mutate(distance = sqrt((pr_1_given_lt35 - true_fractions_age$fraction[1])^2 +
+                           (pr_1_given_gt35_lt50 - true_fractions_age$fraction[2])^2 +
+                           (pr_1_given_gt50_lt65 - true_fractions_age$fraction[3])^2 +
+                           (pr_1_given_gt65 - true_fractions_age$fraction[4])^2)) %>%
+  ungroup()
+
+# Find the row with the minimum distance
+closest_point <- results_age_df[which.min(results_age_df$distance), ]
+print(closest_point)
+
+
+# Compute conditional probabilities for 'demo'
+conditional_probs_demo <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'demo')
+segment_responses_demo <- compute_segment_sizes(dataset = real_dataset, segmentation = 'demo')
+true_segments_demo <- compute_true_segment_sizes(real_dataset, 'demo')
+segment_count_demo <- dim(conditional_probs_demo)[1]  # Should be 5 now
+
+# Define empty dataframe to store results
+results_demo_df <- data.frame(
+  true_weight = numeric(),
+  est_weight = numeric(),
+  pr_1_given_demo1 = numeric(),
+  pr_1_given_demo2 = numeric(),
+  pr_1_given_demo3 = numeric(),
+  pr_1_given_demo4 = numeric(),
+  pr_1_given_demo5 = numeric()
+)
+
+# Compute true response fractions for demo
+true_fractions_demo <- real_dataset %>% 
+  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
+  group_by(true_demo, response) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(true_demo) %>%
+  mutate(fraction = count / sum(count)) %>%
+  filter(response == 1) %>%  # Keep only response=1
+  select(true_demo, fraction)
+
+print(true_fractions_demo)
+
+# Grid search over different weight combinations
+for (true_weight in seq(1, 1000, by = 5)) {
+  for (est_weight in seq(1, 20, by = 5)) {
+    
+    # ⚠️ Randomize initial betas for each iteration to avoid local minima
+    initial_betas_demo <- rnorm(segment_count_demo, mean = 0, sd = 1)
+    
+    maximization_demo <- optim(
+      par = initial_betas_demo,
+      fn = loglikelihood_segments_based,
+      p_z_given_s = conditional_probs_demo,
+      segment_responses = segment_responses_demo,
+      true_segments = true_segments_demo,
+      true_weight = true_weight,
+      est_weight = est_weight,
+      control = list(maxit = 1000, reltol = 1e-6),
+      method = 'BFGS'
+    )
+    
+    optimal_betas_demo <- maximization_demo$par
+    print(paste("true_weight:", true_weight, "est_weight:", est_weight, 
+                "Beta:", paste(round(optimal_betas_demo, 4), collapse = ", ")))
+    
+    pr_1_given_demo1 <- plogis(optimal_betas_demo[1])
+    pr_1_given_demo2 <- plogis(optimal_betas_demo[2])
+    pr_1_given_demo3 <- plogis(optimal_betas_demo[3])
+    pr_1_given_demo4 <- plogis(optimal_betas_demo[4])
+    pr_1_given_demo5 <- plogis(optimal_betas_demo[5])
+    
+    # Store results correctly in results_demo_df
+    results_demo_df <- rbind(results_demo_df, data.frame(true_weight, est_weight, pr_1_given_demo1, pr_1_given_demo2, pr_1_given_demo3, pr_1_given_demo4, pr_1_given_demo5))
+  }
+}
+
+results_demo_df <- results_demo_df %>%
+  rowwise() %>%
+  mutate(distance = sqrt(
+    (pr_1_given_demo1 - true_fractions_demo$fraction[true_fractions_demo$true_demo == 1])^2 +
+      (pr_1_given_demo2 - true_fractions_demo$fraction[true_fractions_demo$true_demo == 2])^2 +
+      (pr_1_given_demo3 - true_fractions_demo$fraction[true_fractions_demo$true_demo == 3])^2 +
+      (pr_1_given_demo4 - true_fractions_demo$fraction[true_fractions_demo$true_demo == 4])^2 +
+      (pr_1_given_demo5 - true_fractions_demo$fraction[true_fractions_demo$true_demo == 5])^2
+  )) %>%
+  ungroup()
+
+# Find the row with the minimum distance
+closest_point_demo <- results_demo_df[which.min(results_demo_df$distance), ]
+print(closest_point_demo)
+
