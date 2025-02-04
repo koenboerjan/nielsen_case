@@ -5,6 +5,7 @@ install_requirements <- function() {
   library(readr)
   library(ggplot2)
   library(plotly)
+  library(data.table)
   source("likelihood_functions.R")
   source("simulate_data.R")
   source("read_data.R")

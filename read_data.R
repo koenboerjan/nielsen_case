@@ -1,16 +1,16 @@
 
 
 read_id_graph_demos <- function() {
-  data <- read.csv("other_data/id_graph_demos.csv")
+  data <- fread("other_data/id_graph_demos.csv")
   return (data)
 }
 
 read_panel_demos <- function() {
-  read.csv("other_data/panel_demos.csv")
+  fread("other_data/panel_demos.csv")
 }
 
 read_universe_estimates <- function() {
-  universe_estimates <- read.csv("other_data/universe_estimates.csv")
+  universe_estimates <- fread("other_data/universe_estimates.csv")
   universe_estimates <- universe_estimates %>%
     mutate(
       gender_bucket = ifelse(gender_bucket == "M", 1, 0),
@@ -35,11 +35,11 @@ read_universe_estimates <- function() {
 }
 
 read_campaign_details <- function() {
-  read.csv("other_data/campaign_details.csv")
+  fread("other_data/campaign_details.csv")
 }
 
 read_site_details <- function() {
-  read.csv("other_data/site_details.csv")
+  fread("other_data/site_details.csv")
 }
 
 read_exposures <- function(site_id_input = NA, platform_input = NA) {
@@ -55,7 +55,7 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
   
   # Define a function to standardize and read files
   read_and_standardize <- function(file) {
-    data <- read.csv(file)
+    data <- fread(file)
     if ("site_id" %in% names(data)) {
       data <- data %>%
         mutate(site_id = as.character(site_id)) # Ensure consistent data type
@@ -68,14 +68,16 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
     map_dfr(read_and_standardize)
   
   
-  if(!is.na(site_id_input)) {
+  if (!is.na(site_id_input)) {
+    site_id_vector <- strsplit(as.character(site_id_input), ",\\s*")[[1]]  # Convert to vector
     all_exposures <- all_exposures %>%
-      filter(site_id == site_id_input)
+      filter(site_id %in% site_id_vector)  # Use %in% for multiple values
   }
   
-  if(!is.na(platform_input)) {
+  if (!is.na(platform_input)) {
+    platform_vector <- strsplit(as.character(platform_input), ",\\s*")[[1]]  # Convert to vector
     all_exposures <- all_exposures %>%
-      filter(platform == platform_input)
+      filter(platform %in% platform_vector)
   }
   
   # Aggregate exposure data
