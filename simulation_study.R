@@ -340,9 +340,9 @@ simulate_evaluate_accuracy_2_segments <- function() {
       color = "red",
       showscale = FALSE
     )  %>%
-    layout(title = "Reach of segment 1 given segment exposures",
-           scene = list(xaxis = list(title = "Exposure 1"),
-                        yaxis = list(title = "Exposure 2"),
+    layout(title = "Reach of segment 1 given segment estimation accuracy",
+           scene = list(xaxis = list(title = "Accuracy 1"),
+                        yaxis = list(title = "Accuracy 2"),
                         zaxis = list(title = "Reach segment 1", range = c(0, 0.1))))
   print(plot1)
   
@@ -365,9 +365,9 @@ simulate_evaluate_accuracy_2_segments <- function() {
       color = "red",
       showscale = FALSE
     ) %>%
-    layout(title = "Reach of segment 2 given segment exposures",
-           scene = list(xaxis = list(title = "Exposure 1"),
-                        yaxis = list(title = "Exposure 2"),
+    layout(title = "Reach of segment 2 given segment estimation accuracy",
+           scene = list(xaxis = list(title = "Accuracy 1"),
+                        yaxis = list(title = "Accuracy 2"),
                         zaxis = list(title = "Reach segment 2", range = c(0, 0.1))))
   print(plot2)
   

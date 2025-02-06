@@ -1,28 +1,28 @@
-# ----------------------------- Compute Reach for Estimated Segments -----------------------------
-compute_reach_estimated_segments <- function(dataset) {
-  responses_per_segment <- dataset %>%
-    group_by(estimated_gender) %>%
-    summarise(count = sum(response), .groups = 'drop') %>%
-    group_by(estimated_gender) %>%
-    mutate(probability = count / sum(count))
-  
-  # Calculate gender flags
-  female <- ifelse(dataset$estimated_gender == 'female', 1, 0)
-  male <- ifelse(dataset$estimated_gender == 'male', 1, 0)
-  est_seg <- bind_cols(female, male)
-  
-  # Compute counts for each gender
-  count_female <- sum(female)
-  count_male <- sum(male)
-  
-  # Compute reach
-  # true_female <- count_female * p_is[1, 1] + count_male * p_is[1, 2]
-  # true_male <- count_male * p_is[2, 2] + count_male * p_is[2, 1]
-  reach_female <- responses_per_segment$count[1] / count_female
-  reach_male <- responses_per_segment$count[2] / count_male
-  
-  print(paste("Reach male:", reach_male, ". Reach female:", reach_female))
-}
+# # ----------------------------- Compute Reach for Estimated Segments -----------------------------
+# compute_reach_estimated_segments <- function(dataset) {
+#   responses_per_segment <- dataset %>%
+#     group_by(estimated_gender) %>%
+#     summarise(count = sum(response), .groups = 'drop') %>%
+#     group_by(estimated_gender) %>%
+#     mutate(probability = count / sum(count))
+#   
+#   # Calculate gender flags
+#   female <- ifelse(dataset$estimated_gender == 'female', 1, 0)
+#   male <- ifelse(dataset$estimated_gender == 'male', 1, 0)
+#   est_seg <- bind_cols(female, male)
+#   
+#   # Compute counts for each gender
+#   count_female <- sum(female)
+#   count_male <- sum(male)
+#   
+#   # Compute reach
+#   # true_female <- count_female * p_is[1, 1] + count_male * p_is[1, 2]
+#   # true_male <- count_male * p_is[2, 2] + count_male * p_is[2, 1]
+#   reach_female <- responses_per_segment$count[1] / count_female
+#   reach_male <- responses_per_segment$count[2] / count_male
+#   
+#   print(paste("Reach male:", reach_male, ". Reach female:", reach_female))
+# }
 
 # ----------------------------- Compute Conditional Probabilities including prior (Z|S) -----------------------------
 compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
@@ -153,7 +153,51 @@ compute_p_z_given_s <- function(dataset, segmentation) {
 # }
 
 # ----------------------------- Compute Segment Sizes -----------------------------
-compute_segment_sizes <- function(dataset, segmentation) {
+compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FALSE) {
+  if (use_true_seperate) {
+    if (segmentation == "gender") {
+      dataset_true_only <- dataset %>% filter(!is.na(true_gender))
+      
+      segments_response_true <- dataset_true_only %>%
+        group_by(true_gender) %>%
+        summarise(
+          response_count = sum(response),
+          no_response_count = sum(1 - response),
+          .groups = 'drop'
+        )
+      
+      dataset <- dataset %>% filter(is.na(true_gender))
+    } else if (segmentation == "age") {
+      dataset_true_only <- dataset %>% filter(!is.na(true_age))
+      
+      segments_response_true <- dataset_true_only %>%
+        group_by(true_age) %>%
+        summarise(
+          response_count = sum(response),
+          no_response_count = sum(1 - response),
+          .groups = 'drop'
+        )
+      dataset <- dataset %>% filter(is.na(true_age))
+    } else if (segmentation == "demo") {
+      dataset_true_only <- dataset %>% filter(!is.na(true_demo))
+      
+      segments_response_true <- dataset_true_only %>%
+        group_by(true_demo) %>%
+        summarise(
+          response_count = sum(response),
+          no_response_count = sum(1 - response),
+          .groups = 'drop'
+        )
+      dataset <- dataset %>% filter(is.na(true_demo))
+    }
+    
+    mat_segments_true_response <- matrix(
+      c(segments_response_true$response_count, segments_response_true$no_response_count),
+      ncol = 2
+    )
+  } else {
+    mat_segments_true_response <- c(0,0)
+  }
   
   # Summarize response and non-response counts
   if (segmentation == "gender") {
@@ -189,12 +233,14 @@ compute_segment_sizes <- function(dataset, segmentation) {
   
   # print(segments_response)
   
-  return(mat_segments_response)
+  return(list(mat_segments_response, mat_segments_true_response))
 }
+
 # 
 # ----------------------------- Compute Log Likelihood for Segments -----------------------------
-loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
-  log_value <- 0
+loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_value_weights = c(1,1)) {
+  log_value_est <- 0
+  log_value_true <- 0
   segment_count <- dim(p_z_given_s)[1]
   
   for (i in 1:segment_count) {
@@ -209,21 +255,34 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses) {
              ((1 / (1 + e_z_beta))^(1 - response_j)))
       }
       
-      log_value <- log_value + segment_responses[i, j] * log(value_segment)
+      log_value_est <- log_value_est + segment_responses[[1]][i, j] * log(value_segment)
+    }
+  }
+  if (sum(segment_responses[[2]]) != 0) {
+    for (z in 1:segment_count) {
+      for (j in 1:2) {
+        response_j <- ifelse(j == 1, 1, 0)
+        e_z_beta <- exp(beta[z]) # Convert beta to probability
+        
+        value_segment <- ((e_z_beta / (1 + e_z_beta))^response_j) * ((1 / (1 + e_z_beta))^(1 - response_j))
+        
+        # Log likelihood contribution for this (y_j, z) pair
+        log_value_true <- log_value_true + segment_responses[[2]][z, j] * log(value_segment)
+      }
     }
   }
   
-  return(-log_value)
+  return(-1*(true_value_weights[1]*log_value_est + true_value_weights[2]*log_value_true))
 }
 
 # ----------------------------- Optimize Log Likelihood -----------------------------
-optimize_loglikelihood <- function(dataset, segmentation, with_prior, print_result = TRUE) {
+optimize_loglikelihood <- function(dataset, segmentation, with_prior, use_true_seperate = FALSE, print_result = TRUE) {
   if (with_prior) {
     p_z_given_s <- compute_p_z_given_s_including_prior(dataset, segmentation)
   } else {
     p_z_given_s <- compute_p_z_given_s(dataset, segmentation)
   }
-  response_segments <- compute_segment_sizes(dataset, segmentation)
+  response_segments <- compute_segment_sizes(dataset, segmentation, use_true_seperate)
   
   segment_count <- dim(p_z_given_s)[1]
   initial_par <- rep(0, segment_count)
