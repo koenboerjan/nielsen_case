@@ -91,10 +91,7 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, t
   
   
 }
-
-#Clean environment
-rm(list = ls())
-
+#----------------------------------------------------------------------------------------------------------------------------------------#
 #Load libraries and functions
 prepare_setup <- function() {
   source("requirements.R")
@@ -106,7 +103,7 @@ prepare_setup()
 
 
 # Load data
-real_dataset<-read_exposures("3605181","MBL")
+real_dataset<-read_exposures()
 conditional_probs <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'gender')
 segment_responses <- compute_segment_sizes(dataset = real_dataset, segmentation = 'gender')
 true_segments <- compute_true_segment_sizes(real_dataset, 'gender')
@@ -209,18 +206,6 @@ results_age_df <- data.frame(true_weight = numeric(),
                          pr_1_given_gt50_lt65=numeric(),
                          pr_1_given_gt65=numeric())
 
-# Compute true response fractions
-true_fractions_age <- real_dataset %>% 
-  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
-  group_by(true_age, response) %>%
-  summarise(count = n(), .groups = 'drop') %>%
-  group_by(true_age) %>%
-  mutate(fraction = count / sum(count)) %>%
-  filter(response == 1) %>%  # Keep only response=1
-  select(true_age, fraction)
-
-print(true_fractions_age)
-
 # Grid search over different weight combinations
 for (true_weight in seq(1, 1000, by = 5)) {
   for (est_weight in seq(1, 20, by = 5)) {
@@ -267,6 +252,17 @@ results_age_df <- results_age_df %>%
 closest_point <- results_age_df[which.min(results_age_df$distance), ]
 print(closest_point)
 
+# Compute true response fractions
+true_fractions_age <- real_dataset %>% 
+  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
+  group_by(true_age, response) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(true_age) %>%
+  mutate(fraction = count / sum(count)) %>%
+  filter(response == 1) %>%  # Keep only response=1
+  select(true_age, fraction)
+
+print(true_fractions_age)
 
 # Compute conditional probabilities for 'demo'
 conditional_probs_demo <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'demo')
@@ -284,18 +280,6 @@ results_demo_df <- data.frame(
   pr_1_given_demo4 = numeric(),
   pr_1_given_demo5 = numeric()
 )
-
-# Compute true response fractions for demo
-true_fractions_demo <- real_dataset %>% 
-  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
-  group_by(true_demo, response) %>%
-  summarise(count = n(), .groups = 'drop') %>%
-  group_by(true_demo) %>%
-  mutate(fraction = count / sum(count)) %>%
-  filter(response == 1) %>%  # Keep only response=1
-  select(true_demo, fraction)
-
-print(true_fractions_demo)
 
 # Grid search over different weight combinations
 for (true_weight in seq(1, 1000, by = 5)) {
@@ -331,6 +315,19 @@ for (true_weight in seq(1, 1000, by = 5)) {
   }
 }
 
+
+# Compute true response fractions for demo
+true_fractions_demo <- real_dataset %>% 
+  filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) %>%
+  group_by(true_demo, response) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(true_demo) %>%
+  mutate(fraction = count / sum(count)) %>%
+  filter(response == 1) %>%  # Keep only response=1
+  select(true_demo, fraction)
+
+print(true_fractions_demo)
+
 results_demo_df <- results_demo_df %>%
   rowwise() %>%
   mutate(distance = sqrt(
@@ -343,6 +340,5 @@ results_demo_df <- results_demo_df %>%
   ungroup()
 
 # Find the row with the minimum distance
-closest_point_demo <- results_demo_df[which.min(results_demo_df$distance), ]
+closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
-
