@@ -31,8 +31,9 @@ simulate_evaluate_fraction_2_segments <- function() {
   
   plot1 <- ggplot(final_results, aes(x=x_axis)) + 
     geom_line(aes(y = segment_1, colour = 'Segment 1')) + 
-    geom_line(aes(y = segment_2, colour = 'Segment 2'), linetype="twodash") +
-    geom_hline(yintercept = exposure, color = "blue", linetype = "dotted") +
+    geom_line(aes(y = segment_2, colour = 'Segment 2'), linetype = 5) +
+    geom_hline(aes(yintercept = exposure[1], color = c("True segment 1")), linetype = 6) +
+    geom_hline(aes(yintercept = exposure[2], color = c("True segment 2")), linetype = 6) + 
     labs(
       title = "Prediction of segment reach given logarithm of fraction",
       x = "log of fraction of segment 1",

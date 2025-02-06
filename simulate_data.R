@@ -38,7 +38,7 @@ simulate_dataset <- function(n_test, fraction_per_segment, exposure_per_segment,
     close('Segmentation does not exist')
   }
   if (print_simulation) {
-    cat(paste('\nDataset for male and female devision has been generated, input parameters are: \n sample size: ', n_test))
+    cat(paste('\nDataset for male and female division has been generated, input parameters are: \n sample size: ', n_test))
     for (i in 1:segments_count) {
       cat('\nSegment: ', i,'\n fractions of segment:', fraction_per_segment[i], '\n exposure of segment:', exposure_per_segment[i], 
                 '\n correct estimation segments: ', paste(estimation_correctness[i,]), '\n true sampled reach is: ', true_sampled_reach[i])
