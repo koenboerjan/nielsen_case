@@ -1,3 +1,7 @@
+# Install required packages
+# -----------------------
+
+
 install_requirements <- function() {
   library(dplyr)
   library(tidyr)
@@ -6,6 +10,9 @@ install_requirements <- function() {
   library(ggplot2)
   library(plotly)
   library(data.table)
+  library(future.apply)
+  library(duckdb)
+  library(DBI)
   source("likelihood_functions.R")
   source("simulate_data.R")
   source("read_data.R")
