@@ -1,46 +1,46 @@
 
 #--------------------------------Compute True Segment Sizes-------------------------------------
-compute_true_segment_sizes<-function(dataset,segmentation){
-  #Delete the observations with NA values
-  dataset <- dataset %>%
-    filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo))
-  print(head(dataset))
-  # Summarize response and non-response counts
-  if (segmentation == "gender") {
-    segments_response <- dataset %>%
-      group_by(true_gender) %>%
-      summarise(
-        response_count = sum(response),
-        no_response_count = sum(1 - response),
-        .groups = 'drop'
-      )
-  } else if (segmentation == "age") {
-    segments_response <- dataset %>%
-      group_by(true_age) %>%
-      summarise(
-        response_count = sum(response),
-        no_response_count = sum(1 - response),
-        .groups = 'drop'
-      )
-  } else if (segmentation == "demo") {
-    segments_response <- dataset %>%
-      group_by(true_demo) %>%
-      summarise(
-        response_count = sum(response),
-        no_response_count = sum(1 - response),
-        .groups = 'drop'
-      )
-  }
-
-  mat_segments_response <- matrix(
-    c(segments_response$response_count, segments_response$no_response_count),
-    ncol = 2
-  )
-
-  print(segments_response)
-
-  return(mat_segments_response)
-}
+# compute_true_segment_sizes<-function(dataset,segmentation){
+#   #Delete the observations with NA values
+#   dataset <- dataset %>%
+#     filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo))
+#   print(head(dataset))
+#   # Summarize response and non-response counts
+#   if (segmentation == "gender") {
+#     segments_response <- dataset %>%
+#       group_by(true_gender) %>%
+#       summarise(
+#         response_count = sum(response),
+#         no_response_count = sum(1 - response),
+#         .groups = 'drop'
+#       )
+#   } else if (segmentation == "age") {
+#     segments_response <- dataset %>%
+#       group_by(true_age) %>%
+#       summarise(
+#         response_count = sum(response),
+#         no_response_count = sum(1 - response),
+#         .groups = 'drop'
+#       )
+#   } else if (segmentation == "demo") {
+#     segments_response <- dataset %>%
+#       group_by(true_demo) %>%
+#       summarise(
+#         response_count = sum(response),
+#         no_response_count = sum(1 - response),
+#         .groups = 'drop'
+#       )
+#   }
+# 
+#   mat_segments_response <- matrix(
+#     c(segments_response$response_count, segments_response$no_response_count),
+#     ncol = 2
+#   )
+# 
+#   print(segments_response)
+# 
+#   return(mat_segments_response)
+# }
 
 # ----------------------------- Compute Log Likelihood for Segments -----------------------------
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_segments, true_weight, est_weight) {
@@ -359,3 +359,4 @@ print(closest_point_demo)
 
 conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
 print(conditional_probs_full)
+universe_estimates<-read_universe_estimates()

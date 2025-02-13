@@ -69,23 +69,35 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_demo) %>%
       mutate(probability = count / sum(count))
   }else if (segmentation == "full") {
-    # dataset <- dataset %>% filter(!is.na(true_demo) | !is.na(true_age) | !is.na(true_gender))
+    dataset <- dataset %>% filter(!is.na(true_demo) | !is.na(true_age) | !is.na(true_gender))
     
-    # Creating the full set of combinations for true_gender, true_age, and true_demo
-    all_combinations <- expand.grid(
+    # Debugging: Print all possible combinations
+    print("All combinations generated:")
+    combinations <- expand.grid(
+      estimated_gender = unique(dataset$estimated_gender),
+      estimated_age = unique(dataset$estimated_age),
+      estimated_demo = unique(dataset$estimated_demo),
       true_gender = unique(dataset$true_gender),
       true_age = unique(dataset$true_age),
       true_demo = unique(dataset$true_demo)
     )
+    print(combinations)  # To inspect the combinations
     
+    # Compute the p_z probabilities based on universe estimates
     p_z <- universe_estimates %>%
-      mutate(probability = num_persons / tot_persons)  # Use tot_persons instead of sum_persons
+      mutate(probability = num_persons / tot_persons) 
     
+    # Compute p_s_given_z based on the dataset
     p_s_given_z <- dataset %>%
       group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
       summarise(count = n(), .groups = 'drop') %>%
-      right_join(all_combinations, by = c("true_gender", "true_age", "true_demo")) %>%
-      mutate(probability = ifelse(is.na(count), 0, count / sum(count)))
+      right_join(combinations, by = c("estimated_gender", "estimated_age", "estimated_demo", "true_gender", "true_age", "true_demo")) %>%
+      replace_na(list(count = 0)) %>%
+      mutate(probability = count / sum(count))  # Calculate the probability for each combination
+    
+    print(p_z)
+    print(p_s_given_z)  # To inspect the resulting dataframe
+    print(dim(p_s_given_z)) 
   } 
   
   
