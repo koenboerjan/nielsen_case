@@ -26,10 +26,9 @@
 
 # ----------------------------- Compute Conditional Probabilities including prior (Z|S) -----------------------------
 compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
-  # Collect universe true priors
+  
   universe_estimates <- read_universe_estimates()
-
-  # Calculate conditional probabilities
+  print(universe_estimates)
   if (segmentation == "gender") {
     # Clean missing true data
     dataset <- dataset %>% filter(!is.na(true_gender))
@@ -44,7 +43,7 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_gender) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "age") {
-    # Clean missing true data
+    
     dataset <- dataset %>% filter(!is.na(true_age))
     
     p_z <- universe_estimates %>%
@@ -57,7 +56,7 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_age) %>%
       mutate(probability = count / sum(count))
   } else if (segmentation == "demo") {
-    # Clean missing true data
+    
     dataset <- dataset %>% filter(!is.na(true_demo))
     
     p_z <- universe_estimates %>%
@@ -69,7 +68,25 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       summarise(count = n(), .groups = 'drop') %>%
       group_by(true_demo) %>%
       mutate(probability = count / sum(count))
-  }
+  }else if (segmentation == "full") {
+    # dataset <- dataset %>% filter(!is.na(true_demo) | !is.na(true_age) | !is.na(true_gender))
+    
+    # Creating the full set of combinations for true_gender, true_age, and true_demo
+    all_combinations <- expand.grid(
+      true_gender = unique(dataset$true_gender),
+      true_age = unique(dataset$true_age),
+      true_demo = unique(dataset$true_demo)
+    )
+    
+    p_z <- universe_estimates %>%
+      mutate(probability = num_persons / tot_persons)  # Use tot_persons instead of sum_persons
+    
+    p_s_given_z <- dataset %>%
+      group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
+      summarise(count = n(), .groups = 'drop') %>%
+      right_join(all_combinations, by = c("true_gender", "true_age", "true_demo")) %>%
+      mutate(probability = ifelse(is.na(count), 0, count / sum(count)))
+  } 
   
   
   dim_matrix <- sqrt(length(p_s_given_z$probability))
@@ -189,6 +206,16 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
           .groups = 'drop'
         )
       dataset <- dataset %>% filter(is.na(true_demo))
+    } else if (segmentation=='full'){
+      dataset_true_only <-dataset%>% filter(!is.na(true_age)|!is.na(true_gender)|!is.na(true_demo))
+      
+      segments_response_true<- dataset_true_only %>%
+        group_by(true_gender,true_age,true_demo) %>%
+        summarise(
+          response_count=sum(response),
+          no_response_count=sum(1-response),
+          .groups='drop'
+        )
     }
     
     mat_segments_true_response <- matrix(
@@ -198,7 +225,9 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
   } else {
     mat_segments_true_response <- c(0,0)
   }
+  print(mat_segments_true_response)
   
+  dataset<-dataset%>%filter(is.na(true_age) | is.na(true_gender) | is.na(true_demo))
   # Summarize response and non-response counts
   if (segmentation == "gender") {
     segments_response <- dataset %>%
@@ -224,6 +253,16 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
         no_response_count = sum(1 - response),
         .groups = 'drop'
       )
+  } else if (segmentation=="full"){
+    segments_response<- dataset%>%
+      group_by(estimated_gender,estimated_age,estimated_demo)%>%
+      summarise(
+        response_count=sum(response),
+        no_response_count= sum(1-response),
+        .groups='drop'
+      )
+    
+    segments_response_true
   }
   
   mat_segments_response <- matrix(
@@ -231,7 +270,7 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
     ncol = 2
   )
   
-  # print(segments_response)
+  print(segments_response)
   
   return(list(mat_segments_response, mat_segments_true_response))
 }

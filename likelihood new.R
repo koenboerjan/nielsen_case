@@ -1,8 +1,9 @@
+
 #--------------------------------Compute True Segment Sizes-------------------------------------
 compute_true_segment_sizes<-function(dataset,segmentation){
   #Delete the observations with NA values
-  dataset <- dataset %>% 
-    filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo)) 
+  dataset <- dataset %>%
+    filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo))
   print(head(dataset))
   # Summarize response and non-response counts
   if (segmentation == "gender") {
@@ -30,17 +31,17 @@ compute_true_segment_sizes<-function(dataset,segmentation){
         .groups = 'drop'
       )
   }
-  
+
   mat_segments_response <- matrix(
     c(segments_response$response_count, segments_response$no_response_count),
     ncol = 2
   )
-  
+
   print(segments_response)
-  
+
   return(mat_segments_response)
 }
-# 
+
 # ----------------------------- Compute Log Likelihood for Segments -----------------------------
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_segments, true_weight, est_weight) {
   log_value_est <- 0
@@ -104,10 +105,17 @@ prepare_setup()
 
 # Load data
 real_dataset<-read_exposures()
-conditional_probs <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'gender')
-segment_responses <- compute_segment_sizes(dataset = real_dataset, segmentation = 'gender')
-true_segments <- compute_true_segment_sizes(real_dataset, 'gender')
 
+# Compute conditional probabilities for gender segmentation
+conditional_probs <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'gender')
+print(conditional_probs)
+results <- compute_segment_sizes(dataset = real_dataset, segmentation = 'gender',use_true_seperate = TRUE)
+print(results)
+# Extract segment responses and true segments from the results
+segment_responses <- results[[1]]
+print(segment_responses)
+true_segments <- results[[2]]
+print(true_segments)
 segment_count <- dim(conditional_probs)[1]
 
 # Define empty dataframe to store results
@@ -139,6 +147,12 @@ for (true_weight in seq(1, 1000, by = 5)) {
     # ⚠️ Randomize initial betas for each iteration to avoid local minimal
     initial_betas <- rnorm(segment_count, mean = 0, sd = 1)
     
+    print(dim(true_segments))
+    print(dim(segment_responses))
+    print(dim(conditional_probs))  # Same as conditional_probs
+    print(length(initial_betas))  # Should match segment count
+    
+    
     maximization <- optim(
       par = initial_betas,
       fn = loglikelihood_segments_based,
@@ -147,8 +161,8 @@ for (true_weight in seq(1, 1000, by = 5)) {
       true_segments = true_segments,
       true_weight = true_weight,
       est_weight = est_weight,
-      control = list(maxit = 1000, reltol = 1e-6),
-      method = 'BFGS'
+      method = "BFGS",
+      control = list(maxit = 1000, reltol = 1e-6)
     )
     
     optimal_betas <- maximization$par
@@ -342,3 +356,6 @@ results_demo_df <- results_demo_df %>%
 # Find the row with the minimum distance
 closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
+
+conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
+print(conditional_probs_full)

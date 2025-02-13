@@ -72,6 +72,7 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
   # Clean missing observations from id_graph_demos
   id_graph_demos_clean <- id_graph_demos %>%
     filter(complete.cases(.))
+  colnames(id_graph_demos_clean)=c("person_id","graph_age","graph_gender","graph_demo")
   
   # List all exposure files
   exposure_files <- list.files(path = "exposures_all/", pattern = "exposures_nlsn.*\\.csv", full.names = TRUE)
