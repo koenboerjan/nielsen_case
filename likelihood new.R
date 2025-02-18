@@ -357,6 +357,10 @@ results_demo_df <- results_demo_df %>%
 closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
 
+
+
+##########################################################################################
+#TOTAL COMBINATION ESTIMATIONS
 #Now estimate the conditional probabilities for the full set of demographic combinations
 conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
 print(conditional_probs_full)
@@ -364,9 +368,52 @@ print(conditional_probs_full)
 
 
 results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
-print(results_full)
+
 segment_responses_full <- results_full[[1]]
 print(segment_responses_full)
 true_segments_full <- results_full[[2]]
 print(true_segments_full)
 
+segment_data <- compute_segment_sizes(real_dataset, segmentation = "full", use_true_seperate = TRUE)[[2]] %>%
+  as.data.frame() %>%
+  rename(response_count = V1, no_response_count = V2) %>%
+  mutate(
+    fraction = ifelse((response_count + no_response_count) > 0,
+                      response_count / (response_count + no_response_count),
+                      0) 
+  )
+
+segment_labels <- expand.grid(
+  true_gender = c(0, 1),
+  true_age = 1:4,
+  true_demo = 1:5
+)
+
+# Bind labels with data
+segment_data <- cbind(segment_labels, segment_data)
+
+# Print to verify
+print(segment_data)
+
+segment_count_full <- nrow(conditional_probs_full)  # Number of segments
+initial_beta_full <- rep(0, segment_count_full) 
+
+result <- optim(par = initial_beta_full, 
+                fn = loglikelihood_segments_based,
+                p_z_given_s = conditional_probs_full,
+                segment_responses = segment_responses_full,
+                true_segments = true_segments_full,
+                true_weight = 1,
+                est_weight = 1,
+                control = list(maxit = 1000, reltol = 1e-6),
+                method = "L-BFGS-B",
+                lower=-10,
+                upper=0
+                )
+
+optimized_beta_full <- result$par
+result$convergence
+
+# Example usage: Compute probabilities for optimized beta values
+p_y_given_z <- plogis(optimized_beta_full)
+print(p_y_given_z)

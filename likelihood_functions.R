@@ -71,18 +71,17 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
   }else if (segmentation == "full") {
     dataset <- dataset %>% filter(!is.na(true_demo) & !is.na(true_age) & !is.na(true_gender)) 
     
-    # Compute probabilities of the true segments from universe estimates
     p_z <- universe_estimates %>%
-      mutate(probability = num_persons / sum(num_persons))
+      mutate(probability = num_persons / tot_persons)
     
     # Create all possible combinations for true and estimated demographics
     true_combinations <- expand.grid(true_gender = 0:1, true_age = 1:4, true_demo = 1:5)
     estimated_combinations <- expand.grid(estimated_gender = 0:1, estimated_age = 1:4, estimated_demo = 1:5)
     
-    # Merge both to form all pairs of (true_* and estimated_*)
+    # Merge to form all (true, estimated) pairs
     all_combinations <- merge(true_combinations, estimated_combinations, by = NULL)
     
-    # Initialize p_s_given_z
+    # Compute P(S | Z)
     p_s_given_z <- dataset %>%
       group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
       summarise(count = n(), .groups = 'drop') %>%
@@ -90,34 +89,15 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_gender, true_age, true_demo) %>%
       mutate(probability = count / sum(count)) 
     
-    # Left join with all_combinations to ensure every combination is represented
+    # Ensure all (true, estimated) pairs exist
     p_s_given_z <- left_join(all_combinations, p_s_given_z, 
                              by = c("true_gender", "true_age", "true_demo", 
-                                    "estimated_gender", "estimated_age", "estimated_demo"))
-    
-    # Replace NA values in count or probability columns with zeros
-    p_s_given_z <- p_s_given_z %>%
+                                    "estimated_gender", "estimated_age", "estimated_demo")) %>%
       replace_na(list(count = 0, probability = 0))
     
-    # Calculate the marginal probability for each true segment (P(true_segment))
-    marginal_probabilities <- p_s_given_z %>%
-      group_by(true_gender, true_age, true_demo) %>%
-      summarise(marginal_count = sum(count), .groups = 'drop') %>%
-      mutate(marginal_probability = marginal_count / sum(marginal_count))
-    
-    # Join with the p_s_given_z to include the marginal probabilities
-    p_s_given_z <- left_join(p_s_given_z, marginal_probabilities, 
-                             by = c("true_gender", "true_age", "true_demo"))
-    
-    # Calculate the conditional probability
-    p_s_given_z <- p_s_given_z %>%
-      mutate(conditional_probability = count / marginal_count)
-    
-   
-    
-    print(p_z)
     print(p_s_given_z)
   }
+  
   
   # Create matrix for further calculations
   dim_matrix <- sqrt(length(p_s_given_z$probability))
@@ -258,7 +238,7 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
       segments_response_true <- full_join(true_combinations, segments_response_true, by = c("true_gender", "true_age", "true_demo"))
       segments_response_true[is.na(segments_response_true)] <- 0  # Fill missing with 0
     }
-    
+    print(segments_response_true)
     mat_segments_true_response <- matrix(
       c(segments_response_true$response_count, segments_response_true$no_response_count),
       ncol = 2
