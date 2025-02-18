@@ -280,7 +280,7 @@ print(true_fractions_age)
 
 # Compute conditional probabilities for 'demo'
 conditional_probs_demo <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'demo')
-segment_responses_demo <- compute_segment_sizes(dataset = real_dataset, segmentation = 'demo')
+segment_sizes(dataset = real_dataset, segmentation = 'demo')
 true_segments_demo <- compute_true_segment_sizes(real_dataset, 'demo')
 segment_count_demo <- dim(conditional_probs_demo)[1]  # Should be 5 now
 
@@ -357,6 +357,16 @@ results_demo_df <- results_demo_df %>%
 closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
 
+#Now estimate the conditional probabilities for the full set of demographic combinations
 conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
 print(conditional_probs_full)
-universe_estimates<-read_universe_estimates()
+
+
+
+results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
+print(results_full)
+segment_responses_full <- results_full[[1]]
+print(segment_responses_full)
+true_segments_full <- results_full[[2]]
+print(true_segments_full)
+
