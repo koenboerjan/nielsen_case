@@ -275,7 +275,7 @@ print(true_fractions_age)
 
 # Compute conditional probabilities for 'demo'
 conditional_probs_demo <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'demo')
-segment_responses_demo <- compute_segment_sizes(dataset = real_dataset, segmentation = 'demo')
+segment_sizes(dataset = real_dataset, segmentation = 'demo')
 true_segments_demo <- compute_true_segment_sizes(real_dataset, 'demo')
 segment_count_demo <- dim(conditional_probs_demo)[1]  # Should be 5 now
 
@@ -352,6 +352,109 @@ results_demo_df <- results_demo_df %>%
 closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
 
+<<<<<<< HEAD
 conditional_probs_full <- compute_p_z_given_s_full(dataset = real_dataset)
+=======
+
+
+##########################################################################################
+#TOTAL COMBINATION ESTIMATIONS
+#Now estimate the conditional probabilities for the full set of demographic combinations
+conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
+>>>>>>> 2a58319eb8ab22955090655882a3b80ce6ccbbe9
 print(conditional_probs_full)
-universe_estimates<-read_universe_estimates()
+
+
+
+results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
+
+segment_responses_full <- results_full[[1]]
+print(segment_responses_full)
+true_segments_full <- results_full[[2]]
+print(true_segments_full)
+
+segment_data <- compute_segment_sizes(real_dataset, segmentation = "full", use_true_seperate = TRUE)[[2]] %>%
+  as.data.frame() %>%
+  rename(response_count = V1, no_response_count = V2) %>%
+  mutate(
+    fraction = ifelse((response_count + no_response_count) > 0,
+                      response_count / (response_count + no_response_count),
+                      0) 
+  )
+print(segment_data)
+segment_labels <- expand.grid(
+  true_gender = c(0, 1),
+  true_age = 1:4,
+  true_demo = 1:5
+)
+
+# Bind labels with data
+segment_data <- cbind(segment_labels, segment_data)
+
+# Print to verify
+print(segment_data)
+
+segment_count_full <- nrow(conditional_probs_full)  # Number of segments
+initial_beta_full <- rep(0, segment_count_full) 
+
+result <- optim(par = initial_beta_full,
+                fn = loglikelihood_segments_based,
+                p_z_given_s = conditional_probs_full,
+                segment_responses = segment_responses_full,
+                true_segments = true_segments_full,
+                true_weight = 300,
+                est_weight = 1,
+                control = list(maxit = 1000),
+                method = "L-BFGS-B",
+                lower=-10,
+                upper=0
+                )
+
+optimized_beta_full <- result$par
+result$convergence
+
+# Example usage: Compute probabilities for optimized beta values
+p_y_given_z <- plogis(optimized_beta_full)
+print(p_y_given_z)
+
+segment_data <- as.data.frame(segment_data)
+
+# Add probabilities to segment_data
+probability_df <- segment_data %>%
+  mutate(p_y_given_z = p_y_given_z) %>%
+  select(-response_count, -no_response_count)
+
+# Define different values of true_weight to optimize over
+true_weights <- c(1,10,100,300)  # You can extend this as needed
+
+# Initialize a dataframe to store results
+probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "fraction")]
+
+# Loop over each true_weight
+for (w in true_weights) {
+  
+  # Define optimization function for the current true_weight
+  optim_result <- optim(
+    par = initial_beta_full,  # Initial beta values (logit scale)
+    fn = loglikelihood_segments_based,
+    p_z_given_s = conditional_probs_full,
+    segment_responses = segment_responses_full,
+    true_segments = true_segments_full,      
+    true_weight = w,                               
+    est_weight = 1,                            
+    control = list(maxit = 1000),
+    method = "L-BFGS-B",
+    lower=-10,
+    upper=0
+  )
+  
+  # Convert optimized betas into estimated probabilities
+  estimated_probs <- plogis(optim_result$par)  
+  
+  # Store results in a new column named based on the weight
+  probability_df[[paste0("estimated_prob_w", w)]] <- estimated_probs
+}
+
+# Print the final probability_df
+print(probability_df)
+fwrite(probability_df, "probability_df.csv", row.names = FALSE)

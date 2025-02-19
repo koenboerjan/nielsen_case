@@ -69,6 +69,7 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_demo) %>%
       mutate(probability = count / sum(count))
   }else if (segmentation == "full") {
+<<<<<<< HEAD
     dataset <- dataset %>% filter(!is.na(true_demo) & !is.na(true_age) & !is.na(true_gender))
     
     # Generate all possible (true, estimated) pairs
@@ -108,18 +109,51 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
     print(p_z)
     print(p_s_given_z)
   } 
+=======
+    dataset <- dataset %>% filter(!is.na(true_demo) & !is.na(true_age) & !is.na(true_gender)) 
+    
+    p_z <- universe_estimates %>%
+      mutate(probability = num_persons / tot_persons)
+    
+    # Create all possible combinations for true and estimated demographics
+    true_combinations <- expand.grid(true_gender = 0:1, true_age = 1:4, true_demo = 1:5)
+    estimated_combinations <- expand.grid(estimated_gender = 0:1, estimated_age = 1:4, estimated_demo = 1:5)
+    
+    # Merge to form all (true, estimated) pairs
+    all_combinations <- merge(true_combinations, estimated_combinations, by = NULL)
+    
+    # Compute P(S | Z)
+    p_s_given_z <- dataset %>%
+      group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
+      summarise(count = n(), .groups = 'drop') %>%
+      replace_na(list(count = 0)) %>%
+      group_by(true_gender, true_age, true_demo) %>%
+      mutate(probability = count / sum(count)) 
+    
+    # Ensure all (true, estimated) pairs exist
+    p_s_given_z <- left_join(all_combinations, p_s_given_z, 
+                             by = c("true_gender", "true_age", "true_demo", 
+                                    "estimated_gender", "estimated_age", "estimated_demo")) %>%
+      replace_na(list(count = 0, probability = 0))
+    
+    print(p_s_given_z)
+  }
+>>>>>>> 2a58319eb8ab22955090655882a3b80ce6ccbbe9
   
   
+  # Create matrix for further calculations
   dim_matrix <- sqrt(length(p_s_given_z$probability))
   p_s_given_z_matrix <- matrix(p_s_given_z$probability, nrow = dim_matrix, ncol = dim_matrix)
   
+  # Compute p_s_and_z and p_z_given_s
   p_s_and_z <- p_s_given_z_matrix * p_z$probability
   p_s <- colSums(p_s_and_z)
   
   p_s_matrix <- t(matrix(rep((p_s**-1),dim_matrix), ncol = dim_matrix))
-  p_z_given_s <- t(p_s_and_z*p_s_matrix)
+  p_z_given_s <- t(p_s_and_z * p_s_matrix)
   
-  # print(p_z_given_s)
+  p_z_given_s[is.na(p_z_given_s)] <- 0.025
+    
   return(p_z_given_s)
 }
 
@@ -192,6 +226,11 @@ compute_p_z_given_s <- function(dataset, segmentation) {
 
 # ----------------------------- Compute Segment Sizes -----------------------------
 compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FALSE) {
+  
+  true_combinations <- expand.grid(true_gender = 0:1, true_age = 1:4, true_demo = 1:5)
+  estimated_combinations <- expand.grid(estimated_gender = 0:1, estimated_age = 1:4, estimated_demo = 1:5)
+  
+  
   if (use_true_seperate) {
     if (segmentation == "gender") {
       dataset_true_only <- dataset %>% filter(!is.na(true_gender))
@@ -237,8 +276,11 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
           no_response_count=sum(1-response),
           .groups='drop'
         )
+      
+      segments_response_true <- full_join(true_combinations, segments_response_true, by = c("true_gender", "true_age", "true_demo"))
+      segments_response_true[is.na(segments_response_true)] <- 0  # Fill missing with 0
     }
-    
+    print(segments_response_true)
     mat_segments_true_response <- matrix(
       c(segments_response_true$response_count, segments_response_true$no_response_count),
       ncol = 2
@@ -283,7 +325,8 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
         .groups='drop'
       )
     
-    segments_response_true
+    segments_response <- full_join(estimated_combinations, segments_response, by = c("estimated_gender", "estimated_age", "estimated_demo"))
+    segments_response[is.na(segments_response)] <- 0
   }
   
   mat_segments_response <- matrix(
@@ -294,6 +337,7 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
   print(segments_response)
   
   return(list(mat_segments_response, mat_segments_true_response))
+  
 }
 
 # 
