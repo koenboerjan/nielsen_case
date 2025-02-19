@@ -21,20 +21,20 @@ read_large_file_in_chunks <- function(file_path) {
 
 # Function to Read id_graph_demos in Chunks
 read_id_graph_demos <- function() {
-  file_path <- "other_data/id_graph_demos_v2.csv"
-  data <- read_large_file_in_chunks(file_path)
+  file_path <- "other_data/id_graph_demos_short.csv"
+  data <- fread(file_path)
   return(data)
 }
 
 read_panel_demos <- function() {
-  fread("other_data/panel_demos_v2.csv")
+  fread("other_data/panel_demos.csv")
 }
 
 read_universe_estimates <- function() {
   universe_estimates <- fread("other_data/universe_estimates.csv")
   universe_estimates <- universe_estimates %>%
     mutate(
-      gender_bucket = ifelse(gender_bucket == "M", 1, 0),
+      gender_bucket = ifelse(gender_bucket == "M", 2, 1),
       age_bucket = case_when(
         age_bucket == "18-20" ~ 1,
         age_bucket == "21-24" ~ 1,
@@ -133,7 +133,7 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
   # Standardize demographic values
   merged_exposure_data <- merged_exposure_data %>%
     mutate(
-      estimated_gender = ifelse(estimated_gender == "male", 1, 0),
+      estimated_gender = ifelse(estimated_gender == "male", 2, 1),
       estimated_demo = as.numeric(estimated_demo),
       estimated_age = case_when(
         estimated_age == "lt35" ~ 1,
