@@ -1,29 +1,6 @@
-
-# ---------- To read large datafiles quicker ------------------
-# Define Chunk Size
-chunk_size <- 5e6  # 5 million rows per chunk
-# DuckDB Connection (For Efficient Querying)
-con <- dbConnect(duckdb::duckdb(), dbdir = "my_database.duckdb")
-# Function to Read Large File in Chunks
-read_large_file_in_chunks <- function(file_path) {
-  total_rows <- fread(file_path, select = 1, showProgress = FALSE)[, .N]
-  chunk_indices <- seq(1, total_rows, by = chunk_size)
-  
-  plan(multisession, workers = 4)  # Use 4 CPU cores
-  results <- future_lapply(chunk_indices, function(skip) {
-    fread(file_path, skip = skip, nrows = chunk_size, showProgress = TRUE)
-  })
-  
-  return(rbindlist(results))  # Combine chunks
-}
-# ---------------------------------------------------------------
-
-
-# Function to Read id_graph_demos in Chunks
 read_id_graph_demos <- function() {
-  file_path <- "other_data/id_graph_demos_short.csv"
-  data <- fread(file_path)
-  return(data)
+  data <- fread("other_data/id_graph_demos.csv")
+  return (data)
 }
 
 read_panel_demos <- function() {
@@ -63,8 +40,6 @@ read_site_details <- function() {
   fread("other_data/site_details.csv")
 }
 
-
-# Function to Read and Process Exposures in Chunks
 read_exposures <- function(site_id_input = NA, platform_input = NA) {
   id_graph_demos <- read_id_graph_demos()
   panel_demos <- read_panel_demos()
@@ -73,36 +48,37 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
   id_graph_demos_clean <- id_graph_demos %>%
     filter(complete.cases(.))
   
-  # List all exposure files
+  # Load and combine all exposure files
   exposure_files <- list.files(path = "exposures_all/", pattern = "exposures_nlsn.*\\.csv", full.names = TRUE)
   
-  # Read and standardize exposures in chunks
-  read_exposures_in_chunks <- function(file) {
-    fread(file, select = c("person_id", "site_id", "platform", "num_exposures"))
+  # Define a function to standardize and read files
+  read_and_standardize <- function(file) {
+    data <- fread(file, nrow = 1000000)
+    if ("site_id" %in% names(data)) {
+      data <- data %>%
+        mutate(site_id = as.character(site_id)) # Ensure consistent data type
+    }
+    return(data)
   }
   
-  plan(multisession, workers = 4)  # Enable parallel reading
-  all_exposures <- future_lapply(exposure_files, read_exposures_in_chunks) %>%
-    rbindlist()
+  # Combine all exposures
+  all_exposures <- exposure_files %>%
+    map_dfr(read_and_standardize)
   
-  # Convert `site_id` to character type
-  if ("site_id" %in% names(all_exposures)) {
-    all_exposures <- all_exposures %>% mutate(site_id = as.character(site_id))
-  }
   
-  # Filter based on site_id_input
   if (!is.na(site_id_input)) {
-    site_id_vector <- strsplit(as.character(site_id_input), ",\\s*")[[1]]
-    all_exposures <- all_exposures %>% filter(site_id %in% site_id_vector)
+    site_id_vector <- strsplit(as.character(site_id_input), ",\\s*")[[1]]  # Convert to vector
+    all_exposures <- all_exposures %>%
+      filter(site_id %in% site_id_vector)  # Use %in% for multiple values
   }
   
-  # Filter based on platform_input
   if (!is.na(platform_input)) {
-    platform_vector <- strsplit(as.character(platform_input), ",\\s*")[[1]]
-    all_exposures <- all_exposures %>% filter(platform %in% platform_vector)
+    platform_vector <- strsplit(as.character(platform_input), ",\\s*")[[1]]  # Convert to vector
+    all_exposures <- all_exposures %>%
+      filter(platform %in% platform_vector)
   }
   
-  # Aggregate exposures
+  # Aggregate exposure data
   aggregated_exposure <- all_exposures %>%
     group_by(person_id, site_id, platform) %>%
     summarise(
@@ -110,27 +86,23 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
       .groups = 'drop'
     )
   
-  # Merge with demographic data
-  merged_demos <- merge(id_graph_demos_clean, panel_demos, by = 'person_id', all.x = TRUE)
+  merged_demos <- merge(id_graph_demos_clean, panel_demos, by = 'person_id', all.x = TRUE) 
   
   merged_exposure_data <- merge(
     merged_demos,
     aggregated_exposure,
     by = "person_id",
-    all.x = TRUE  # Retain all panel_demos rows
+    all.x = TRUE  # Retain all rows from panel_demos
   ) %>%
-    mutate(
-      total_exposures = coalesce(total_exposures, 0),
-      response = ifelse(total_exposures > 0, 1, 0)
-    )
+    mutate(total_exposures = coalesce(total_exposures, 0)) %>%  # Replace NA with 0
+    mutate(response = ifelse(total_exposures > 0, 1, 0))       # Define binary response
   
-  # Standardize column names
-  colnames(merged_exposure_data) <- c(
-    'person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 'true_age',
-    'true_gender', 'true_demo', 'site_id', 'platform', 'total_exposures', 'response'
-  )
   
-  # Standardize demographic values
+  
+  colnames(merged_exposure_data) <- c('person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 'true_age', 
+                                      'true_gender', 'true_demo', 'site_id', 'platform', 'total_exposures', 'response')
+  
+  # Standardize data types in `demographic_groups`
   merged_exposure_data <- merged_exposure_data %>%
     mutate(
       estimated_gender = ifelse(estimated_gender == "male", 2, 1),
@@ -150,10 +122,5 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
         true_age == "gt65" ~ 4
       )
     )
-  
   return(merged_exposure_data)
 }
-
-# Close DuckDB connection when done
-dbDisconnect(con)
-
