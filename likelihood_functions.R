@@ -237,6 +237,71 @@ compute_segment_sizes <- function(dataset, segmentation, use_true_seperate = FAL
 }
 
 # 
+
+# ----------------------------- Compute Segment Sizes real dataset -----------------------------
+compute_segment_sizes_real_dataset <- function(dataset, segmentation) {
+  if (segmentation == "gender") {
+    segments_response_true <- dataset[[1]] %>%
+      group_by(true_gender) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop'
+        )
+    segments_response <- dataset[[2]] %>%
+      group_by(estimated_gender) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop'
+        )
+  } else if (segmentation == "age") {
+    segments_response_true <- dataset[[1]] %>%
+      group_by(true_age) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop'
+      )
+    segments_response <- dataset[[2]] %>%
+      group_by(estimated_age) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop')
+  } else if (segmentation == "demo") {
+    segments_response_true <- dataset[[1]] %>%
+      group_by(true_demo) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop'
+      )
+    segments_response <- dataset[[2]] %>%
+      group_by(estimated_demo) %>%
+      summarise(
+        response_count = sum(response_count),
+        no_response_count = sum(no_response_count),
+        .groups = 'drop')
+  }
+  
+  mat_segments_true_response <- matrix(
+    c(segments_response_true$response_count, segments_response_true$no_response_count),
+    ncol = 2
+  )
+  
+  mat_segments_response <- matrix(
+    c(segments_response$response_count, segments_response$no_response_count),
+    ncol = 2
+  )
+  
+  return(list(mat_segments_response, mat_segments_true_response))
+}
+
+# 
+
+
+
 # ----------------------------- Compute Log Likelihood for Segments -----------------------------
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_value_weights = c(1,1)) {
   log_value_est <- 0
@@ -285,7 +350,9 @@ optimize_loglikelihood <- function(dataset, segmentation, with_prior, use_true_s
     p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
   
-  response_segments <- compute_segment_sizes(dataset, segmentation, use_true_seperate)
+  print(p_z_given_s)
+  
+  response_segments <- compute_segment_sizes_real_dataset(dataset, segmentation)
   
   segment_count <- dim(p_z_given_s)[1]
   initial_par <- rep(0, segment_count)
