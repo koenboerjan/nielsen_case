@@ -25,107 +25,107 @@
 # }
 
 # ----------------------------- Compute Conditional Probabilities including prior (Z|S) -----------------------------
-compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
-  # Collect universe true priors
-  universe_estimates <- read_universe_estimates()
-
-  # Calculate conditional probabilities
-  if (segmentation == "gender") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_gender))
-    
-    p_z <- universe_estimates %>%
-      group_by(gender_bucket) %>%
-      summarise(count = sum(num_persons)) %>%
-      mutate(probability = count / (universe_estimates$tot_persons[1]))
-    p_s_given_z <- dataset %>%
-      group_by(estimated_gender, true_gender) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(true_gender) %>%
-      mutate(probability = count / sum(count))
-  } else if (segmentation == "age") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_age))
-    
-    p_z <- universe_estimates %>%
-      group_by(age_bucket) %>%
-      summarise(count = sum(num_persons)) %>%
-      mutate(probability = count / (universe_estimates$tot_persons[1]))
-    p_s_given_z <- dataset %>%
-      group_by(estimated_age, true_age) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(true_age) %>%
-      mutate(probability = count / sum(count))
-  } else if (segmentation == "demo") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_demo))
-    
-    p_z <- universe_estimates %>%
-      group_by(demo3_bucket) %>%
-      summarise(count = sum(num_persons)) %>%
-      mutate(probability = count / (universe_estimates$tot_persons[1]))
-    p_s_given_z <- dataset %>%
-      group_by(estimated_demo, true_demo) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(true_demo) %>%
-      mutate(probability = count / sum(count))
-  }
-  
-  
-  dim_matrix <- sqrt(length(p_s_given_z$probability))
-  p_s_given_z_matrix <- matrix(p_s_given_z$probability, nrow = dim_matrix, ncol = dim_matrix)
-  
-  p_s_and_z <- p_s_given_z_matrix * p_z$probability
-  p_s <- colSums(p_s_and_z)
-  
-  p_s_matrix <- t(matrix(rep((p_s**-1),dim_matrix), ncol = dim_matrix))
-  p_z_given_s <- t(p_s_and_z*p_s_matrix)
-  
-  # print(p_z_given_s)
-  return(p_z_given_s)
-}
+# compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
+#   # Collect universe true priors
+#   universe_estimates <- read_universe_estimates()
+# 
+#   # Calculate conditional probabilities
+#   if (segmentation == "gender") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_gender))
+#     
+#     p_z <- universe_estimates %>%
+#       group_by(gender_bucket) %>%
+#       summarise(count = sum(num_persons)) %>%
+#       mutate(probability = count / (universe_estimates$tot_persons[1]))
+#     p_s_given_z <- dataset %>%
+#       group_by(estimated_gender, true_gender) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(true_gender) %>%
+#       mutate(probability = count / sum(count))
+#   } else if (segmentation == "age") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_age))
+#     
+#     p_z <- universe_estimates %>%
+#       group_by(age_bucket) %>%
+#       summarise(count = sum(num_persons)) %>%
+#       mutate(probability = count / (universe_estimates$tot_persons[1]))
+#     p_s_given_z <- dataset %>%
+#       group_by(estimated_age, true_age) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(true_age) %>%
+#       mutate(probability = count / sum(count))
+#   } else if (segmentation == "demo") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_demo))
+#     
+#     p_z <- universe_estimates %>%
+#       group_by(demo3_bucket) %>%
+#       summarise(count = sum(num_persons)) %>%
+#       mutate(probability = count / (universe_estimates$tot_persons[1]))
+#     p_s_given_z <- dataset %>%
+#       group_by(estimated_demo, true_demo) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(true_demo) %>%
+#       mutate(probability = count / sum(count))
+#   }
+#   
+#   
+#   dim_matrix <- sqrt(length(p_s_given_z$probability))
+#   p_s_given_z_matrix <- matrix(p_s_given_z$probability, nrow = dim_matrix, ncol = dim_matrix)
+#   
+#   p_s_and_z <- p_s_given_z_matrix * p_z$probability
+#   p_s <- colSums(p_s_and_z)
+#   
+#   p_s_matrix <- t(matrix(rep((p_s**-1),dim_matrix), ncol = dim_matrix))
+#   p_z_given_s <- t(p_s_and_z*p_s_matrix)
+#   
+#   # print(p_z_given_s)
+#   return(p_z_given_s)
+# }
 
 
 # ----------------------------- Compute Conditional Probabilities P(Z|S) -----------------------------
-compute_p_z_given_s <- function(dataset, segmentation) {
-  # Calculate conditional probabilities
-  if (segmentation == "gender") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_gender))
-    
-    conditional_probs <- dataset %>%
-      group_by(estimated_gender, true_gender) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(estimated_gender) %>%
-      mutate(probability = count / sum(count))
-  } else if (segmentation == "age") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_age))
-    
-    conditional_probs <- dataset %>%
-      group_by(estimated_age, true_age) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(estimated_age) %>%
-      mutate(probability = count / sum(count))
-  } else if (segmentation == "demo") {
-    # Clean missing true data
-    dataset <- dataset %>% filter(!is.na(true_demo))
-    
-    conditional_probs <- dataset %>%
-      group_by(estimated_demo, true_demo) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      group_by(estimated_demo) %>%
-      mutate(probability = count / sum(count))
-  }
-  
-  dim_matrix <- sqrt(length(conditional_probs$probability))
-  conditional_probs_matrix <- matrix(conditional_probs$probability, nrow = dim_matrix, ncol = dim_matrix)
-  
-  p_z_given_s <- t(conditional_probs_matrix)
-  
-  # print(p_z_given_s)
-  return(p_z_given_s)
-}
+# compute_p_z_given_s <- function(dataset, segmentation) {
+#   # Calculate conditional probabilities
+#   if (segmentation == "gender") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_gender))
+#     
+#     conditional_probs <- dataset %>%
+#       group_by(estimated_gender, true_gender) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(estimated_gender) %>%
+#       mutate(probability = count / sum(count))
+#   } else if (segmentation == "age") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_age))
+#     
+#     conditional_probs <- dataset %>%
+#       group_by(estimated_age, true_age) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(estimated_age) %>%
+#       mutate(probability = count / sum(count))
+#   } else if (segmentation == "demo") {
+#     # Clean missing true data
+#     dataset <- dataset %>% filter(!is.na(true_demo))
+#     
+#     conditional_probs <- dataset %>%
+#       group_by(estimated_demo, true_demo) %>%
+#       summarise(count = n(), .groups = 'drop') %>%
+#       group_by(estimated_demo) %>%
+#       mutate(probability = count / sum(count))
+#   }
+#   
+#   dim_matrix <- sqrt(length(conditional_probs$probability))
+#   conditional_probs_matrix <- matrix(conditional_probs$probability, nrow = dim_matrix, ncol = dim_matrix)
+#   
+#   p_z_given_s <- t(conditional_probs_matrix)
+#   
+#   # print(p_z_given_s)
+#   return(p_z_given_s)
+# }
 
 # # ----------------------------- Compute Log Likelihood -----------------------------
 # loglikelihood <- function(beta) {
@@ -277,11 +277,14 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, t
 
 # ----------------------------- Optimize Log Likelihood -----------------------------
 optimize_loglikelihood <- function(dataset, segmentation, with_prior, use_true_seperate = FALSE, print_result = TRUE) {
+  
+  # Compute P(Z | S)
   if (with_prior) {
-    p_z_given_s <- compute_p_z_given_s_including_prior(dataset, segmentation)
+    p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_with_prior"))
   } else {
-    p_z_given_s <- compute_p_z_given_s(dataset, segmentation)
+    p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
+  
   response_segments <- compute_segment_sizes(dataset, segmentation, use_true_seperate)
   
   segment_count <- dim(p_z_given_s)[1]

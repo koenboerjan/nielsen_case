@@ -1,6 +1,6 @@
 # ------------- Compute number of observations per variable combination ----------
 
-compute_segment_sizes_poisson <- function(dataset, segmentation, use_true_seperate = FALSE) {
+compute_segment_sizes_poisson <- function(dataset, segmentation, use_true_seperate = TRUE) {
   true_col <- paste0("true_", segmentation)
   estimated_col <- paste0("estimated_", segmentation)
   
@@ -35,9 +35,11 @@ compute_segment_sizes_poisson <- function(dataset, segmentation, use_true_sepera
 loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_exposures, segmentation) {
   log_value <- 0  # Initialize log-likelihood
   segment_levels <- unique(segment_exposures[[1]][[paste0("estimated_", segmentation)]])  # Get unique segment values
-  
+  print(segment_levels)
   estimated_exposures <- segment_exposures[[1]]
   true_exposures <- segment_exposures[[2]]
+  
+  print(beta)
   
   # Compute log-likelihood for estimated segments weighted by P(Z | S)
   for (i in segment_levels) {
@@ -52,16 +54,14 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
       
       # Sum over all possible true segments Z, weighted by P(Z | S)
       weighted_likelihood <- 0
-      for (z in unique(true_exposures[[paste0("true_", segmentation)]])) {
-        lambda_z <- exp(beta[z])  # Poisson rate for true segment z
+      for (z in unique(estimated_exposures[[paste0("estimated_", segmentation)]])) {
         p_z_given_s_val <- p_z_given_s[i, z]  # Transition probability P(Z | S)
         
-        weighted_likelihood <- weighted_likelihood + p_z_given_s_val * (
-          num_exposed * (observed_exposure * log(lambda_z) - lambda_z)
-        )
+        weighted_likelihood <- weighted_likelihood + 
+          p_z_given_s_val * (exp(-1 * beta[z])/factorial(observed_exposure)*beta[z]**observed_exposure)
       }
-      
-      log_value <- log_value + weighted_likelihood
+      log_value <- log_value + num_exposed * log(weighted_likelihood)
+      print(log_value)
     }
   }
   
@@ -80,15 +80,15 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
   
   # Compute P(Z | S)
   if (with_prior) {
-    p_z_given_s <- compute_p_z_given_s_including_prior(dataset, segmentation)
+    p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_with_prior"))
   } else {
-    p_z_given_s <- compute_p_z_given_s(dataset, segmentation)
+    p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
   
   segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
   
   # Compute segment exposures (grouped total exposures)
-  segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation, TRUE)
+  segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation)
   
   # Compute mean exposures for better initial values
   exposure_means <- dataset %>%
@@ -98,16 +98,18 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
   
   # Prevent log(0) errors
   initial_beta <- log(pmax(exposure_means, 0.01))  
-  initial_par <- initial_beta  
+  initial_par <- initial_beta
   
   # Optimize Poisson log-likelihood function
   best_result <- optim(
-    par = initial_par,
-    fn = function(params) {
-      loglikelihood_segments_based_poisson(params, p_z_given_s, segment_exposures, segmentation)
-    },
-    method = "BFGS",
-    control = list(fnscale = 1, maxit = 1000, reltol = 1e-7)
+    par = initial_beta,
+    fn = loglikelihood_segments_based_poisson,
+    p_z_given_s = p_z_given_s,
+    segment_exposures = segment_exposures,
+    segmentation = segmentation,
+    method = "L-BFGS-B",
+    lower = c(-3),     
+    upper = c(10)
   )
   
   beta_final <- best_result$par  
@@ -116,10 +118,10 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
     cat("\n✅ Optimization converged successfully!\n")
     cat("\nOptimized Poisson Model Parameters:")
     cat("\nBeta:", beta_final, "\n")
-    cat("\nPredicted Exposures:", exp(beta_final), "\n")  
+    cat("\nPredicted Exposures:", beta_final, "\n")  
   }
   
-  return(list(beta = beta_final, predicted_exposures = exp(beta_final), optimization = best_result))
+  return(list(beta = beta_final, predicted_exposures = beta_final, optimization = best_result))
 }
 
 # ----------------------------- Compute Expected Frequency Given Reach -----------------------------
@@ -128,7 +130,7 @@ evaluation_poisson <- function(dataset, beta, segmentation) {
   segmentation_col_est <- paste0("estimated_", segmentation)
   segmentation_col_true <- paste0("true_", segmentation)
   
-  pred_expected_exposures <- exp(beta)
+  pred_expected_exposures <- beta
   
   # Compute mean exposures for estimated segments
   exposure_for_estimated_seg <- dataset %>%
@@ -184,7 +186,10 @@ dataset_frequency <- simulate_exposure_dataset(
   print_simulation = TRUE
 )
 
-pois_results <- optimize_loglikelihood_poisson(dataset_frequency, segmentation, with_prior = TRUE)
+dataset_frequency_filtered <- dataset_frequency %>%
+  filter(total_exposures > 0)
+
+pois_results <- optimize_loglikelihood_poisson(dataset_frequency_filtered, segmentation, with_prior = TRUE)
 eval_results <- evaluation_poisson(dataset_frequency, pois_results$beta, segmentation)
 print(eval_results)
 
@@ -194,9 +199,9 @@ real_dataset <- read_exposures()
 
 # Remove observations where total_exposures == 0
 real_dataset_filtered <- real_dataset %>%
-  filter(total_exposures > 0)
+  filter(total_exposures > 0) %>%
+  filter(total_exposures < 10)
 
 pois_results <- optimize_loglikelihood_poisson(real_dataset_filtered, segmentation, with_prior = TRUE)
 eval_results <- evaluation_poisson(real_dataset_filtered, pois_results$beta, segmentation)
 print(eval_results)
-
