@@ -382,7 +382,7 @@ segment_data <- compute_segment_sizes(real_dataset, segmentation = "full", use_t
                       response_count / (response_count + no_response_count),
                       0) 
   )
-
+print(segment_data)
 segment_labels <- expand.grid(
   true_gender = c(0, 1),
   true_age = 1:4,
@@ -398,14 +398,14 @@ print(segment_data)
 segment_count_full <- nrow(conditional_probs_full)  # Number of segments
 initial_beta_full <- rep(0, segment_count_full) 
 
-result <- optim(par = initial_beta_full, 
+result <- optim(par = initial_beta_full,
                 fn = loglikelihood_segments_based,
                 p_z_given_s = conditional_probs_full,
                 segment_responses = segment_responses_full,
                 true_segments = true_segments_full,
-                true_weight = 1,
+                true_weight = 300,
                 est_weight = 1,
-                control = list(maxit = 1000, reltol = 1e-6),
+                control = list(maxit = 1000),
                 method = "L-BFGS-B",
                 lower=-10,
                 upper=0
@@ -417,3 +417,45 @@ result$convergence
 # Example usage: Compute probabilities for optimized beta values
 p_y_given_z <- plogis(optimized_beta_full)
 print(p_y_given_z)
+
+segment_data <- as.data.frame(segment_data)
+
+# Add probabilities to segment_data
+probability_df <- segment_data %>%
+  mutate(p_y_given_z = p_y_given_z) %>%
+  select(-response_count, -no_response_count)
+
+# Define different values of true_weight to optimize over
+true_weights <- c(1,10,100,300)  # You can extend this as needed
+
+# Initialize a dataframe to store results
+probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "fraction")]
+
+# Loop over each true_weight
+for (w in true_weights) {
+  
+  # Define optimization function for the current true_weight
+  optim_result <- optim(
+    par = initial_beta_full,  # Initial beta values (logit scale)
+    fn = loglikelihood_segments_based,
+    p_z_given_s = conditional_probs_full,
+    segment_responses = segment_responses_full,
+    true_segments = true_segments_full,      
+    true_weight = w,                               
+    est_weight = 1,                            
+    control = list(maxit = 1000),
+    method = "L-BFGS-B",
+    lower=-10,
+    upper=0
+  )
+  
+  # Convert optimized betas into estimated probabilities
+  estimated_probs <- plogis(optim_result$par)  
+  
+  # Store results in a new column named based on the weight
+  probability_df[[paste0("estimated_prob_w", w)]] <- estimated_probs
+}
+
+# Print the final probability_df
+print(probability_df)
+fwrite(probability_df, "probability_df.csv", row.names = FALSE)
