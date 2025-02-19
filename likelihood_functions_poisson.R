@@ -51,6 +51,7 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
     for (j in 1:nrow(exposure_subset)) {
       num_exposed <- exposure_subset$num_individuals[j]
       observed_exposure <- exposure_subset$total_exposures[j]
+      print(observed_exposure)
       
       # Sum over all possible true segments Z, weighted by P(Z | S)
       weighted_likelihood <- 0
@@ -61,6 +62,11 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
           p_z_given_s_val * (exp(-1 * beta[z])/factorial(observed_exposure)*beta[z]**observed_exposure)
       }
       log_value <- log_value + num_exposed * log(weighted_likelihood)
+
+      print(weighted_likelihood)
+      if (observed_exposure < 25) {
+        log_value <- log_value + num_exposed * log(weighted_likelihood)
+      }
       print(log_value)
     }
   }
@@ -85,6 +91,9 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
     p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
   
+  dataset <- dataset %>%
+    filter(total_exposures > 0)
+  
   segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
   
   # Compute segment exposures (grouped total exposures)
@@ -100,6 +109,7 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
   initial_beta <- log(pmax(exposure_means, 0.01))  
   initial_par <- initial_beta
   
+
   # Optimize Poisson log-likelihood function
   best_result <- optim(
     par = initial_beta,
@@ -131,6 +141,10 @@ evaluation_poisson <- function(dataset, beta, segmentation) {
   segmentation_col_true <- paste0("true_", segmentation)
   
   pred_expected_exposures <- beta
+  
+  dataset <- dataset %>%
+    filter(total_exposures > 0)
+
   
   # Compute mean exposures for estimated segments
   exposure_for_estimated_seg <- dataset %>%
@@ -165,14 +179,14 @@ segmentation <- "age"  # Choose "gender", "age", or "demo"
 
 # ----------------------- For simulated data ----------------------------
 
-n <- 1000000
+n <- 10000000
 dataset_frequency <- simulate_exposure_dataset(n, c(0.516, 0.484), c(3.2, 3.0), matrix(c(0.7, 0.3, 0.2, 0.8), ncol = 2),
                                                segmentation = "gender", dispersion = 1, distribution = "poisson",
                                                seed_number = 0, print_simulation = TRUE)
 dataset_frequency <- simulate_exposure_dataset(
-  n_test = 1e6, 
+  n_test = 1e7, 
   fraction_per_segment = c(0.25, 0.25, 0.25, 0.25), 
-  exposure_per_segment = c(2.5, 3.0, 3.5, 4.0), 
+  exposure_per_segment = c(6, 3.0, 3.5, 4.0), 
   estimation_correctness = matrix(
     c(0.6, 0.2, 0.1, 0.1,
       0.2, 0.6, 0.1, 0.1,
@@ -189,18 +203,15 @@ dataset_frequency <- simulate_exposure_dataset(
 dataset_frequency_filtered <- dataset_frequency %>%
   filter(total_exposures > 0)
 
-pois_results <- optimize_loglikelihood_poisson(dataset_frequency_filtered, segmentation, with_prior = TRUE)
+
+pois_results <- optimize_loglikelihood_poisson(dataset_frequency_filtered, segmentation, with_prior = FALSE)
 eval_results <- evaluation_poisson(dataset_frequency, pois_results$beta, segmentation)
 print(eval_results)
 
 # ----------------------- For real data ----------------------------
 
 real_dataset <- read_exposures()
-
-# Remove observations where total_exposures == 0
-real_dataset_filtered <- real_dataset %>%
-  filter(total_exposures > 0) %>%
-  filter(total_exposures < 10)
+real_dataset_filtered <- real_dataset
 
 pois_results <- optimize_loglikelihood_poisson(real_dataset_filtered, segmentation, with_prior = TRUE)
 eval_results <- evaluation_poisson(real_dataset_filtered, pois_results$beta, segmentation)

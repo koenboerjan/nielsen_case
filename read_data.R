@@ -1,5 +1,5 @@
 read_id_graph_demos <- function() {
-  data <- fread("other_data/id_graph_demos.csv", nrow = 5000000)
+  data <- fread("other_data/id_graph_demos.csv")
   return (data)
 }
 
@@ -11,7 +11,7 @@ read_universe_estimates <- function() {
   universe_estimates <- fread("other_data/universe_estimates.csv")
   universe_estimates <- universe_estimates %>%
     mutate(
-      gender_bucket = ifelse(gender_bucket == "M", 1, 0),
+      gender_bucket = ifelse(gender_bucket == "M", 2, 1),
       age_bucket = case_when(
         age_bucket == "18-20" ~ 1,
         age_bucket == "21-24" ~ 1,
@@ -105,7 +105,7 @@ read_exposures <- function(site_id_input = NA, platform_input = NA) {
   # Standardize data types in `demographic_groups`
   merged_exposure_data <- merged_exposure_data %>%
     mutate(
-      estimated_gender = ifelse(estimated_gender == "male", 1, 0),
+      estimated_gender = ifelse(estimated_gender == "male", 2, 1),
       estimated_demo = as.numeric(estimated_demo),
       estimated_age = case_when(
         estimated_age == "lt35" ~ 1,
