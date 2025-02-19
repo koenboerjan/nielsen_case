@@ -147,11 +147,6 @@ for (true_weight in seq(1, 1000, by = 5)) {
     # ⚠️ Randomize initial betas for each iteration to avoid local minimal
     initial_betas <- rnorm(segment_count, mean = 0, sd = 1)
     
-    print(dim(true_segments))
-    print(dim(segment_responses))
-    print(dim(conditional_probs))  # Same as conditional_probs
-    print(length(initial_betas))  # Should match segment count
-    
     
     maximization <- optim(
       par = initial_betas,
@@ -357,6 +352,6 @@ results_demo_df <- results_demo_df %>%
 closest_point_demo <- results_demo_df[which.min(results_demo_df$distance),]
 print(closest_point_demo)
 
-conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
+conditional_probs_full <- compute_p_z_given_s_full(dataset = real_dataset)
 print(conditional_probs_full)
 universe_estimates<-read_universe_estimates()

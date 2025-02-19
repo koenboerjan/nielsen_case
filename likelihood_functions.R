@@ -69,35 +69,44 @@ compute_p_z_given_s_including_prior <- function(dataset, segmentation) {
       group_by(true_demo) %>%
       mutate(probability = count / sum(count))
   }else if (segmentation == "full") {
-    dataset <- dataset %>% filter(!is.na(true_demo) | !is.na(true_age) | !is.na(true_gender))
+    dataset <- dataset %>% filter(!is.na(true_demo) & !is.na(true_age) & !is.na(true_gender))
     
-    # Debugging: Print all possible combinations
-    print("All combinations generated:")
-    combinations <- expand.grid(
-      estimated_gender = unique(dataset$estimated_gender),
-      estimated_age = unique(dataset$estimated_age),
-      estimated_demo = unique(dataset$estimated_demo),
-      true_gender = unique(dataset$true_gender),
-      true_age = unique(dataset$true_age),
-      true_demo = unique(dataset$true_demo)
+    # Generate all possible (true, estimated) pairs
+    all_combinations <- expand.grid(
+      estimated_gender = 0:1,
+      estimated_age = 1:4,
+      estimated_demo = 1:5,
+      true_gender = 0:1,
+      true_age = 1:4,
+      true_demo = 1:5
     )
-    print(combinations)  # To inspect the combinations
     
-    # Compute the p_z probabilities based on universe estimates
+    # Compute p_z only for observed true demographic values
+    observed_true_demos <- dataset %>% select(true_gender, true_age, true_demo) %>% distinct()
+    
     p_z <- universe_estimates %>%
-      mutate(probability = num_persons / tot_persons) 
+      mutate(probability = num_persons / tot_persons)
     
-    # Compute p_s_given_z based on the dataset
+    # Compute p_s_given_z based on dataset counts
     p_s_given_z <- dataset %>%
       group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
       summarise(count = n(), .groups = 'drop') %>%
-      right_join(combinations, by = c("estimated_gender", "estimated_age", "estimated_demo", "true_gender", "true_age", "true_demo")) %>%
-      replace_na(list(count = 0)) %>%
-      mutate(probability = count / sum(count))  # Calculate the probability for each combination
+      group_by(true_gender, true_age, true_demo) %>%
+      mutate(probability = count / sum(count))
     
+    # Ensure all 40×40 combinations exist
+    p_s_given_z <- all_combinations %>%
+      left_join(p_s_given_z, 
+                by = c("estimated_gender", "estimated_age", "estimated_demo", "true_gender", "true_age", "true_demo")) %>%
+      replace_na(list(count = 0, probability = NA))  # Set missing probabilities to NA first
+    
+    # Fill missing true demos with uniform probability across all estimated values
+    p_s_given_z <- p_s_given_z %>%
+      group_by(true_gender, true_age, true_demo) %>%
+      mutate(probability = ifelse(all(is.na(probability)), 1/n(), probability)) %>%
+      ungroup()
     print(p_z)
-    print(p_s_given_z)  # To inspect the resulting dataframe
-    print(dim(p_s_given_z)) 
+    print(p_s_given_z)
   } 
   
   
