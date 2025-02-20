@@ -198,7 +198,7 @@ simulate_evaluate_exposure_2_segments <- function() {
       dataset <- simulate_dataset(n_test = n_test, fraction_per_segment = fraction_gender, 
                                   exposure_per_segment = exposure[i,], estimation_correctness = estimation_correctness,
                                   segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE)
-      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE)
+      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE, simulation = TRUE)
       results <- rbind(results, exp(optimal_beta$par) / (1 + exp(optimal_beta$par)))
       
     }
