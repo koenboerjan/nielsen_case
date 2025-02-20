@@ -362,41 +362,54 @@ print(closest_point_demo)
 ##########################################################################################
 #TOTAL COMBINATION ESTIMATIONS
 #Now estimate the conditional probabilities for the full set of demographic combinations
-conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
-print(conditional_probs_full)
+# conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
+# print(conditional_probs_full)
 
-
-
-results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
-
-segment_responses_full <- results_full[[1]]
-print(segment_responses_full)
-true_segments_full <- results_full[[2]]
+segment_responses_full<-real_dataset[[2]]
+true_segments_full<-real_dataset[[1]]
+conditional_probs_full <-p_z_given_s_full()
 print(true_segments_full)
 
-segment_data <- compute_segment_sizes(real_dataset, segmentation = "full", use_true_seperate = TRUE)[[2]] %>%
+segment_responses_full <- segment_responses_full %>%
+  arrange(estimated_demo, estimated_age,estimated_gender)
+true_segments_full<-true_segments_full%>%
+  arrange(true_demo, true_age,true_gender)
+  # results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
+# 
+# segment_responses_full <- results_full[[1]]
+# print(segment_responses_full)
+# true_segments_full <- results_full[[2]]
+# print(true_segments_full)
+
+segment_data <- true_segments_full %>%
   as.data.frame() %>%
-  rename(response_count = V1, no_response_count = V2) %>%
   mutate(
     fraction = ifelse((response_count + no_response_count) > 0,
                       response_count / (response_count + no_response_count),
                       0) 
   )
-print(segment_data)
-segment_labels <- expand.grid(
-  true_gender = c(0, 1),
-  true_age = 1:4,
-  true_demo = 1:5
-)
-
-# Bind labels with data
-segment_data <- cbind(segment_labels, segment_data)
+# print(segment_data)
+# segment_labels <- expand.grid(
+#   true_gender = c(0, 1),
+#   true_age = 1:4,
+#   true_demo = 1:5
+# )
+# 
+# # Bind labels with data
+# segment_data <- cbind(segment_labels, segment_data)
 
 # Print to verify
 print(segment_data)
 
-segment_count_full <- nrow(conditional_probs_full)  # Number of segments
+segment_count_full <- nrow(conditional_probs_full)  
 initial_beta_full <- rep(0, segment_count_full) 
+
+true_segments_full<-as.matrix(true_segments_full[, c("response_count", "no_response_count")])
+segment_responses_full <- as.matrix(segment_responses_full[, c("response_count", "no_response_count")])
+str(segment_responses_full)
+str(true_segments_full)
+
+
 
 result <- optim(par = initial_beta_full,
                 fn = loglikelihood_segments_based,
@@ -426,7 +439,7 @@ probability_df <- segment_data %>%
   select(-response_count, -no_response_count)
 
 # Define different values of true_weight to optimize over
-true_weights <- c(1,10,100,300)  # You can extend this as needed
+true_weights <- c(1,10,100,300)  
 
 # Initialize a dataframe to store results
 probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "fraction")]
@@ -458,4 +471,7 @@ for (w in true_weights) {
 
 # Print the final probability_df
 print(probability_df)
-fwrite(probability_df, "probability_df.csv", row.names = FALSE)
+library(openxlsx)
+write.xlsx(probability_df, "probabilities_389882.xlsx", rowNames = FALSE)
+
+
