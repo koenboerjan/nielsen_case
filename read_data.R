@@ -247,5 +247,7 @@ read_exposures <- function(site_id_input = NA) {
         estimated_age == "gt65" ~ 4
       )
     )
+  
+  print(paste("Total amount of exposed indivduals is: ", sum(segments_response_total$response_count, segments_response_total_true$response_count)))
   return(list(segments_response_total_true, segments_response_total))
 }
