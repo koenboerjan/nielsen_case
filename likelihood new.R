@@ -411,32 +411,32 @@ str(true_segments_full)
 
 
 
-result <- optim(par = initial_beta_full,
-                fn = loglikelihood_segments_based,
-                p_z_given_s = conditional_probs_full,
-                segment_responses = segment_responses_full,
-                true_segments = true_segments_full,
-                true_weight = 300,
-                est_weight = 1,
-                control = list(maxit = 1000),
-                method = "L-BFGS-B",
-                lower=-10,
-                upper=0
-                )
-
-optimized_beta_full <- result$par
-result$convergence
-
-# Example usage: Compute probabilities for optimized beta values
-p_y_given_z <- plogis(optimized_beta_full)
-print(p_y_given_z)
-
-segment_data <- as.data.frame(segment_data)
-
-# Add probabilities to segment_data
-probability_df <- segment_data %>%
-  mutate(p_y_given_z = p_y_given_z) %>%
-  select(-response_count, -no_response_count)
+# result <- optim(par = initial_beta_full,
+#                 fn = loglikelihood_segments_based,
+#                 p_z_given_s = conditional_probs_full,
+#                 segment_responses = segment_responses_full,
+#                 true_segments = true_segments_full,
+#                 true_weight = 300,
+#                 est_weight = 1,
+#                 control = list(maxit = 1000),
+#                 method = "L-BFGS-B",
+#                 lower=-10,
+#                 upper=0
+#                 )
+# 
+# optimized_beta_full <- result$par
+# result$convergence
+# 
+# # Example usage: Compute probabilities for optimized beta values
+# p_y_given_z <- plogis(optimized_beta_full)
+# print(p_y_given_z)
+# 
+# segment_data <- as.data.frame(segment_data)
+# 
+# # Add probabilities to segment_data
+# probability_df <- segment_data %>%
+#   mutate(p_y_given_z = p_y_given_z) %>%
+#   select(-response_count, -no_response_count)
 
 # Define different values of true_weight to optimize over
 true_weights <- c(1,10,100,300)  
@@ -472,6 +472,6 @@ for (w in true_weights) {
 # Print the final probability_df
 print(probability_df)
 library(openxlsx)
-write.xlsx(probability_df, "probabilities_389882.xlsx", rowNames = FALSE)
+write.xlsx(probability_df, "probabilities_458088.xlsx", rowNames = FALSE)
 
 
