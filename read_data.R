@@ -21,13 +21,12 @@ read_large_file_in_chunks <- function(file_path) {
 
 # Function to Read id_graph_demos in Chunks
 read_id_graph_demos <- function() {
-  file_path <- "other_data/id_graph_demos_v2.csv"
-  data <- read_large_file_in_chunks(file_path)
+  data <- fread("other_data/id_graph_demos.csv")
   return(data)
 }
 
 read_panel_demos <- function() {
-  fread("other_data/panel_demos_v2.csv")
+  fread("other_data/panel_demos.csv")
 }
 
 read_universe_estimates <- function() {
