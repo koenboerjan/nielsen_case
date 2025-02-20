@@ -1,5 +1,5 @@
 read_id_graph_demos <- function() {
-  data <- fread("other_data/id_graph_demos_short.csv")
+  data <- fread("other_data/id_graph_demos.csv")
   return (data)
 }
 
