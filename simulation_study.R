@@ -1,3 +1,13 @@
+simulate_evaluate_method <- function() {
+  n <- 10**7
+  dataset <- simulate_dataset(n, c(0.516, 0.484), c(0.02,0.06), matrix(c(0.7,0.3,0.2,0.8), ncol = 2),
+                              "gender", seed_number = 0, print_simulation = TRUE) 
+  beta <- optimize_loglikelihood(real_dataset, segmentation = 'gender', with_prior = FALSE)
+  
+  
+  
+}
+ 
 simulate_evaluate_fraction_2_segments <- function() {
   fraction_gender_1_log <- c(seq(-10, -2, 0.5), seq(-1.5, -0.1, 0.1))
   fraction_gender_1 <- exp(fraction_gender_1_log)
