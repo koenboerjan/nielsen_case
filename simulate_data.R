@@ -75,7 +75,8 @@ simulate_exposure_dataset <- function(n_test, fraction_per_segment, exposure_per
     estimate_segments <- c(estimate_segments, sample(seq(segments), segment_size, 
                                                      replace = TRUE, prob = estimation_correctness[i, ]))
     true_segments <- c(true_segments, rep(i, segment_size))
-    true_sampled_mean_exposure <- c(true_sampled_mean_exposure, mean(exposure_segment))
+    individuals_exposed <- sum(ifelse(exposure_segment > 0, 1, 0))
+    true_sampled_mean_exposure <- c(true_sampled_mean_exposure, (sum(exposure_segment)/individuals_exposed))
   }
   sample_df <- data.frame(estimate_segments, true_segments, total_exposures)
   # 🔹 Rename columns based on segmentation type

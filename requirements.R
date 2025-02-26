@@ -18,4 +18,6 @@ install_requirements <- function() {
   source("read_data.R")
   source("obtain_insights_data.R")
   source("simulation_study.R")
+  source("likelihood_functions_frequency.R")
+  source("p_z_given_s_matrices.R")
 }
