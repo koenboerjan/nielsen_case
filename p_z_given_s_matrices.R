@@ -1,9 +1,4 @@
-p_z_given_s_gender_without_prior <- compute_p_z_given_s(merged_demos, "gender")
-p_z_given_s_gender_with_prior <- compute_p_z_given_s_including_prior(merged_demos, "gender")
-p_z_given_s_age_without_prior <- compute_p_z_given_s(merged_demos, "age")
-p_z_given_s_age_with_prior <- compute_p_z_given_s_including_prior(merged_demos, "age")
-p_z_given_s_demo_without_prior <- compute_p_z_given_s(merged_demos, "demo")
-p_z_given_s_demo_with_prior <- compute_p_z_given_s_including_prior(merged_demos, "demo")
+
 
 # Define the probability matrices
 
