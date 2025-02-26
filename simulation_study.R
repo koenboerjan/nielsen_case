@@ -71,7 +71,7 @@ simulate_evaluate_fraction_3_segments <- function() {
       dataset <- simulate_dataset(n_test = n_test, fraction_per_segment = fractions[i,], 
                                   exposure_per_segment = exposure, estimation_correctness = estimation_correctness,
                                   segmentation = "age", seed_number = (i*10+15*r), print_simulation = FALSE)
-      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'age', with_prior = FALSE, print_result = FALSE)
+      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'age', with_prior = FALSE, print_result = FALSE, simulation = TRUE)
       results <- rbind(results, exp(optimal_beta$par) / (1 + exp(optimal_beta$par)))
       
     }
@@ -299,7 +299,7 @@ simulate_evaluate_accuracy_2_segments <- function() {
       estimation_correctness_mat <- as.matrix(t(matrix(accuracy_estimation[i,], ncol = 2)))
       dataset <- simulate_dataset(n_test = n_test, fraction_per_segment = fraction_gender, 
                                   exposure_per_segment = exposure, estimation_correctness = estimation_correctness_mat,
-                                  segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE)
+                                  segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE, simulation = TRUE)
       optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE)
       results <- rbind(results, exp(optimal_beta$par) / (1 + exp(optimal_beta$par)))
       
