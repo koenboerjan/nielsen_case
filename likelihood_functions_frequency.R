@@ -49,8 +49,6 @@ loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_ex
   estimated_exposures <- segment_exposures[[1]]
   true_exposures <- segment_exposures[[2]]
   
-  print(beta)
-  
   
   # Compute log-likelihood for estimated segments weighted by P(Z | S)
   for (i in segment_levels) {
@@ -89,33 +87,33 @@ loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_ex
         log_value <- log_value + num_exposed * log(weighted_likelihood)
       }
     }
-    
-    # Get exposures for true_segments
-    exposure_true_subset <- true_exposures %>% filter(!!sym(paste0("true_", segmentation)) == i)
-    
-    for (j in 1:nrow(exposure_true_subset)) {
-      num_exposed <- exposure_true_subset$num_individuals[j]
-      observed_exposure <- log(exposure_true_subset$total_exposures[j])
+    if (sum(true_exposures) > 0) {
+      # Get exposures for true_segments
+      exposure_true_subset <- true_exposures %>% filter(!!sym(paste0("true_", segmentation)) == i)
       
-      # Sum over all possible true segments Z, weighted by P(Z | S)
-      if (use_binomial) {
-        theta_mat <- matrix(beta, ncol = 2)
-        r_z <- theta_mat[i,1]
-        p_z <- theta_mat[i,2]
-        weighted_likelihood <- (gamma(observed_exposure + r_z)/ 
-                                  (factorial(observed_exposure)*gamma(r_z))* 
-                                  p_z**r_z*(1-p_z)**observed_exposure)
-      } else {
-          weighted_likelihood <- 
-            (exp(-1 * beta[z])/factorial(observed_exposure)*beta[z]**observed_exposure)
+      for (j in 1:nrow(exposure_true_subset)) {
+        num_exposed <- exposure_true_subset$num_individuals[j]
+        observed_exposure <- log(exposure_true_subset$total_exposures[j])
+        
+        # Sum over all possible true segments Z, weighted by P(Z | S)
+        if (use_binomial) {
+          theta_mat <- matrix(beta, ncol = 2)
+          r_z <- theta_mat[i,1]
+          p_z <- theta_mat[i,2]
+          weighted_likelihood <- (gamma(observed_exposure + r_z)/ 
+                                    (factorial(observed_exposure)*gamma(r_z))* 
+                                    p_z**r_z*(1-p_z)**observed_exposure)
+        } else {
+            weighted_likelihood <- 
+              (exp(-1 * beta[z])/factorial(observed_exposure)*beta[z]**observed_exposure)
+          }
+        
+        if (observed_exposure < 7) {
+          log_value <- log_value + num_exposed * log(weighted_likelihood)
         }
-      
-      if (observed_exposure < 7) {
-        log_value <- log_value + num_exposed * log(weighted_likelihood)
       }
     }
   }
-  print(log_value)
   
   return(-1 * log_value)  # Return negative log-likelihood for optimization
 }
@@ -252,14 +250,14 @@ evaluation_poisson <- function(dataset, beta, segmentation) {
 #                                                segmentation = "gender", dispersion = 1, distribution = "poisson",
 #                                                seed_number = 0, print_simulation = TRUE)
 # dataset_frequency <- simulate_exposure_dataset(
-#   n_test = 1e7, 
-#   fraction_per_segment = c(0.25, 0.25, 0.25, 0.25), 
-#   exposure_per_segment = c(1.6, 1.4, 1.2, 1.8), 
+#   n_test = 1e7,
+#   fraction_per_segment = c(0.25, 0.25, 0.25, 0.25),
+#   exposure_per_segment = c(3, 1.4, 1.2, 1.8),
 #   estimation_correctness = matrix(
-#     c(0.6, 0.2, 0.1, 0.1,
-#       0.2, 0.6, 0.1, 0.1,
-#       0.1, 0.1, 0.6, 0.2,
-#       0.1, 0.1, 0.2, 0.6), 
+#     c(0.7, 0.1, 0.1, 0.1,
+#       0.05, 0.75, 0.1, 0.1,
+#       0.1, 0.1, 0.7, 0.1,
+#       0.1, 0.1, 0.1, 0.7),
 #     ncol = 4, byrow = TRUE),
 #   segmentation = "age",
 #   dispersion = 1,
