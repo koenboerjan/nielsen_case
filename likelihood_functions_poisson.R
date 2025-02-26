@@ -5,28 +5,27 @@ compute_segment_sizes_poisson <- function(dataset, segmentation, use_true_sepera
   estimated_col <- paste0("estimated_", segmentation)
   
   if (use_true_seperate) {
-    dataset_true_only <- dataset %>% filter(!is.na(!!sym(true_col)))
+    dataset_true_only <- dataset[[1]]
     
     segments_exposures_true <- dataset_true_only %>%
       group_by(!!sym(true_col), total_exposures) %>%
       summarise(
-        num_individuals = n(),  # Count number of people with this exposure level
+        num_individuals = sum(individual_count),  # Count number of people with this exposure level
         .groups = 'drop'
-      )
-    
-    dataset <- dataset %>% filter(is.na(!!sym(true_col)))
+      ) %>% filter(total_exposures > 0)
   } else {
     segments_exposures_true <- tibble()  # Empty tibble if not using true segmentation
   }
   
   # Compute estimated segment exposures
-  segments_exposures <- dataset %>%
+  segments_exposures <- dataset[[2]] %>%
     group_by(!!sym(estimated_col), total_exposures) %>%
     summarise(
-      num_individuals = n(),
+      num_individuals = sum(individual_count),
       .groups = 'drop'
-    )
+    ) %>% filter(total_exposures > 0)
   
+  print(segments_exposures)
   return(list(segments_exposures, segments_exposures_true))
 }
 
@@ -35,11 +34,9 @@ compute_segment_sizes_poisson <- function(dataset, segmentation, use_true_sepera
 loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_exposures, segmentation) {
   log_value <- 0  # Initialize log-likelihood
   segment_levels <- unique(segment_exposures[[1]][[paste0("estimated_", segmentation)]])  # Get unique segment values
-  print(segment_levels)
   estimated_exposures <- segment_exposures[[1]]
   true_exposures <- segment_exposures[[2]]
   
-  print(beta)
   
   # Compute log-likelihood for estimated segments weighted by P(Z | S)
   for (i in segment_levels) {
@@ -51,7 +48,6 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
     for (j in 1:nrow(exposure_subset)) {
       num_exposed <- exposure_subset$num_individuals[j]
       observed_exposure <- exposure_subset$total_exposures[j]
-      print(observed_exposure)
       
       # Sum over all possible true segments Z, weighted by P(Z | S)
       weighted_likelihood <- 0
@@ -63,11 +59,9 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
       }
       log_value <- log_value + num_exposed * log(weighted_likelihood)
 
-      print(weighted_likelihood)
-      if (observed_exposure < 25) {
+      if (observed_exposure < 500) {
         log_value <- log_value + num_exposed * log(weighted_likelihood)
       }
-      print(log_value)
     }
   }
   
@@ -80,9 +74,9 @@ loglikelihood_segments_based_poisson <- function(beta, p_z_given_s, segment_expo
 optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = TRUE, print_result = TRUE) {
   segmentation_col <- paste0("estimated_", segmentation)
   
-  if (!segmentation_col %in% names(dataset)) {
-    stop(paste("Column", segmentation_col, "not found in dataset. Check segmentation input!"))
-  }
+  # if (!segmentation_col %in% names(dataset)) {
+  #   stop(paste("Column", segmentation_col, "not found in dataset. Check segmentation input!"))
+  # }
   
   # Compute P(Z | S)
   if (with_prior) {
@@ -91,16 +85,18 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
     p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
   
-  dataset <- dataset %>%
-    filter(total_exposures > 0)
-  
-  segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
-  
+  # dataset <- dataset %>%
+  #   filter(total_exposures > 0)
+  # 
+  # segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
+  # 
   # Compute segment exposures (grouped total exposures)
-  segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation)
+  # segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation)
+  segment_exposures <- segments_poisson
+  
   
   # Compute mean exposures for better initial values
-  exposure_means <- dataset %>%
+  exposure_means <- dataset[[2]] %>%
     group_by(!!sym(segmentation_col)) %>%
     summarise(mean_exposure = mean(total_exposures, na.rm = TRUE), .groups = "drop") %>%
     pull(mean_exposure)
@@ -108,6 +104,8 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
   # Prevent log(0) errors
   initial_beta <- log(pmax(exposure_means, 0.01))  
   initial_par <- initial_beta
+  
+  print(initial_beta)
   
 
   # Optimize Poisson log-likelihood function

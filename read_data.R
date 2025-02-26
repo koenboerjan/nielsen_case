@@ -251,3 +251,144 @@ read_exposures <- function(site_id_input = NA) {
   print(paste("Total amount of exposed indivduals is: ", sum(segments_response_total$response_count, segments_response_total_true$response_count)))
   return(list(segments_response_total_true, segments_response_total))
 }
+
+read_exposures_frequency <- function(site_id_input = NA) {
+  id_graph_demos <- read_id_graph_demos()
+  panel_demos <- read_panel_demos()
+  
+  # Clean missing observations from id_graph_demos
+  id_graph_demos_clean <- id_graph_demos %>%
+    filter(complete.cases(.))
+  
+  # Load and combine all exposure files
+  exposure_files <- list.files(path = "exposures_all/", pattern = "exposures_nlsn.*\\.csv", full.names = TRUE)
+  
+  # Define a function to standardize and read files
+  read_and_standardize <- function(file) {
+    data <- fread(file)
+    if ("site_id" %in% names(data)) {
+      data <- data %>%
+        mutate(site_id = as.character(site_id)) # Ensure consistent data type
+    }
+    return(data)
+  }
+  
+  # Combine all exposures
+  all_exposures <- exposure_files %>%
+    map_dfr(read_and_standardize)
+  
+  
+  if (!is.na(site_id_input)) {
+    site_id_vector <- strsplit(as.character(site_id_input), ",\\s*")[[1]]  # Convert to vector
+    all_exposures <- all_exposures %>%
+      filter(site_id %in% site_id_vector)  # Use %in% for multiple values
+    # Aggregate exposure data
+    aggregated_exposure <- all_exposures %>%
+      group_by(person_id, site_id) %>%
+      summarise(
+        total_exposures = sum(num_exposures, na.rm = TRUE),
+        .groups = 'drop'
+      )
+  } else {
+    # Aggregate exposure data
+    aggregated_exposure <- all_exposures %>%
+      group_by(person_id) %>%
+      summarise(
+        total_exposures = sum(num_exposures, na.rm = TRUE),
+        .groups = 'drop'
+      )
+  }
+  
+  total_count <- dim(id_graph_demos_clean)[1]
+  subset_size <- 250000
+  
+  loopings <- floor(total_count/subset_size) + 1
+  for (r in 1:loopings) {
+    print(r)
+    if (r == loopings) {
+      print("finito")
+      merged_demos_subset <- merge(id_graph_demos_clean[(subset_size*(r-1)+1): total_count,], panel_demos, by = 'person_id', all.x = TRUE) 
+    } else {
+      merged_demos_subset <- merge(id_graph_demos_clean[(subset_size*(r-1)+1): (subset_size*r),], panel_demos, by = 'person_id', all.x = TRUE) 
+    }
+    
+    merged_exposure_data_subset <- merge(
+      merged_demos_subset,
+      aggregated_exposure,
+      by = "person_id",
+      all.x = TRUE
+    ) %>%
+      mutate(total_exposures = coalesce(total_exposures, 0)) %>%  # Replace NA with 0
+      mutate(response = ifelse(total_exposures > 0, 1, 0))       # Define binary response
+    
+    if (!is.na(site_id_input)) {
+      colnames(merged_exposure_data_subset) <- c('person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 
+                                                 'true_age', 'true_gender', 'true_demo', 'site_id', 'total_exposures', 
+                                                 'response')
+    } else {
+      colnames(merged_exposure_data_subset) <- c('person_id', 'estimated_age', 'estimated_gender', 'estimated_demo', 
+                                                 'true_age', 'true_gender', 'true_demo', 'total_exposures', 
+                                                 'response')
+    }
+    
+    only_exposed <- merged_exposure_data_subset %>% filter(total_exposures > 0)
+    
+    dataset_true_only <- only_exposed %>% filter(!is.na(true_gender))
+    
+    segments_response_count_true <- dataset_true_only %>%
+      group_by(true_gender, true_age, true_demo, total_exposures) %>%
+      summarise(
+        individual_count = sum(response),
+        .groups = 'drop'
+      )
+    
+    dataset <- merged_exposure_data_subset %>% filter(is.na(true_gender))
+    
+    segments_response_count <- dataset %>%
+      group_by(estimated_gender, estimated_age, estimated_demo, total_exposures) %>%
+      summarise(
+        individual_count = sum(response),
+        .groups = 'drop'
+      )
+    
+    if (r == 1) {
+      segments_response_total_true <- segments_response_count_true
+      segments_response_total <- segments_response_count
+    } else {
+      segments_response_total_true <- merge(segments_response_total_true, segments_response_count_true, by = c('true_gender', 'true_age', 'true_demo', 'total_exposures'), all.x = TRUE) %>%
+        mutate(individual_count = ifelse(!is.na(individual_count.x), individual_count.x, 0) + ifelse(!is.na(individual_count.y), individual_count.y, 0))
+      segments_response_total_true <- segments_response_total_true[, c('true_gender', 'true_age', 'true_demo', 'total_exposures', 'individual_count')]
+      segments_response_total <- merge(segments_response_total, segments_response_count, by = c('estimated_gender', 'estimated_age', 'estimated_demo', 'total_exposures'), all.x = TRUE) %>%
+        mutate(individual_count = ifelse(!is.na(individual_count.x), individual_count.x, 0) + ifelse(!is.na(individual_count.y), individual_count.y, 0))
+      segments_response_total <- segments_response_total[, c('estimated_gender', 'estimated_age', 'estimated_demo', 'total_exposures', 'individual_count')]
+    }
+  }
+  
+  # Standardize data types in `demographic_groups`
+  segments_response_total_true <- segments_response_total_true %>%
+    mutate(
+      true_gender = ifelse(true_gender == "male", 2, 1),
+      true_demo = as.numeric(true_demo),
+      true_age = case_when(
+        true_age == "lt35" ~ 1,
+        true_age == "gt35_lt50" ~ 2,
+        true_age == "gt50_lt65" ~ 3,
+        true_age == "gt65" ~ 4
+      )
+    )
+  # Standardize data types in `demographic_groups`
+  segments_response_total <- segments_response_total %>%
+    mutate(
+      estimated_gender = ifelse(estimated_gender == "male", 2, 1),
+      estimated_demo = as.numeric(estimated_demo),
+      estimated_age = case_when(
+        estimated_age == "lt35" ~ 1,
+        estimated_age == "gt35_lt50" ~ 2,
+        estimated_age == "gt50_lt65" ~ 3,
+        estimated_age == "gt65" ~ 4
+      )
+    )
+  
+  return(list(segments_response_total_true, segments_response_total))
+}
+
