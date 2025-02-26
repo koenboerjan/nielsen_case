@@ -447,7 +447,6 @@ probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "frac
 # Loop over each true_weight
 for (w in true_weights) {
   
-  # Define optimization function for the current true_weight
   optim_result <- optim(
     par = initial_beta_full,  # Initial beta values (logit scale)
     fn = loglikelihood_segments_based,
@@ -462,16 +461,33 @@ for (w in true_weights) {
     upper=0
   )
   
-  # Convert optimized betas into estimated probabilities
   estimated_probs <- plogis(optim_result$par)  
   
-  # Store results in a new column named based on the weight
   probability_df[[paste0("estimated_prob_w", w)]] <- estimated_probs
 }
+
+differences <- data.frame(
+  difference_w1   = probability_df$fraction - probability_df$estimated_prob_w1,
+  difference_w10  = probability_df$fraction - probability_df$estimated_prob_w10,
+  difference_w100 = probability_df$fraction - probability_df$estimated_prob_w100,
+  difference_w300 = probability_df$fraction - probability_df$estimated_prob_w300
+)
+
+differences_long <- pivot_longer(differences, cols = everything(), 
+                                 names_to = "Weight", values_to = "Difference")
+
+# Create separate histograms for each difference
+ggplot(differences_long, aes(x = Difference)) +
+  geom_histogram(binwidth=0.02, fill = "skyblue", color = "black", alpha = 0.7) +
+  facet_wrap(~ Weight, scales = "free") +
+  theme_minimal() +
+  labs(title = "Histograms of Differences (Fraction - Estimated Probabilities)",
+       x = "Difference",
+       y = "Count")
 
 # Print the final probability_df
 print(probability_df)
 library(openxlsx)
-write.xlsx(probability_df, "probabilities_458088.xlsx", rowNames = FALSE)
+write.xlsx(probability_df, "probabilities_425736.xlsx", rowNames = FALSE)
 
 
