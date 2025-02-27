@@ -46,8 +46,10 @@ compute_segment_sizes_frequency <- function(dataset, segmentation, use_true_sepe
 loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_exposures, segmentation, use_binomial = FALSE) {
   log_value <- 0  # Initialize log-likelihood
   segment_levels <- unique(segment_exposures[[1]][[paste0("estimated_", segmentation)]])  # Get unique segment values
+  segment_levels_true <- unique(segment_exposures[[2]][[paste0("true_", segmentation)]])  # Get unique segment values
   estimated_exposures <- segment_exposures[[1]]
   true_exposures <- segment_exposures[[2]]
+  print(beta)
   
   
   # Compute log-likelihood for estimated segments weighted by P(Z | S)
@@ -59,7 +61,7 @@ loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_ex
     
     for (j in 1:nrow(exposure_subset)) {
       num_exposed <- exposure_subset$num_individuals[j]
-      observed_exposure <- log(exposure_subset$total_exposures[j])
+      observed_exposure <- exposure_subset$total_exposures[j]
       
       # Sum over all possible true segments Z, weighted by P(Z | S)
       weighted_likelihood <- 0
@@ -83,17 +85,20 @@ loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_ex
         }
       }
       
-      if (observed_exposure < 7) {
+      if (observed_exposure < 100) {
         log_value <- log_value + num_exposed * log(weighted_likelihood)
       }
     }
+  }
+  for (i in segment_levels_true) {
+    lambda_i <- exp(beta[i])  # Poisson rate for estimated segment i
     if (sum(true_exposures) > 0) {
       # Get exposures for true_segments
       exposure_true_subset <- true_exposures %>% filter(!!sym(paste0("true_", segmentation)) == i)
       
       for (j in 1:nrow(exposure_true_subset)) {
         num_exposed <- exposure_true_subset$num_individuals[j]
-        observed_exposure <- log(exposure_true_subset$total_exposures[j])
+        observed_exposure <- exposure_true_subset$total_exposures[j]
         
         # Sum over all possible true segments Z, weighted by P(Z | S)
         if (use_binomial) {
@@ -107,8 +112,7 @@ loglikelihood_segments_based_frequency <- function(beta, p_z_given_s, segment_ex
             weighted_likelihood <- 
               (exp(-1 * beta[z])/factorial(observed_exposure)*beta[z]**observed_exposure)
           }
-        
-        if (observed_exposure < 7) {
+        if (observed_exposure < 100) {
           log_value <- log_value + num_exposed * log(weighted_likelihood)
         }
       }
@@ -156,7 +160,7 @@ optimize_loglikelihood_frequency <- function(dataset, segmentation, with_prior =
   segment_count <- length(exposure_means$mean_exposure)
   # Prevent log(0) errors
   if (use_binomial) {
-    initial_par <- c(rep(0.5,2*segment_count))
+    initial_par <- c(rep(0.5, 2 * segment_count))
     
     best_result <- optim(
       par = initial_par,
@@ -167,9 +171,9 @@ optimize_loglikelihood_frequency <- function(dataset, segmentation, with_prior =
       use_binomial = TRUE,
       method = "L-BFGS-B",
       lower = c(rep(0.1, segment_count), rep(0.01, segment_count)),     
-      upper =  c(rep(50, segment_count), rep(0.90, segment_count))
+      upper =  c(rep(50, segment_count), rep(0.93, segment_count))
     )
-    beta_final <- exp(best_result$par[1:segment_count]*(1-best_result$par[(segment_count+1):(2*segment_count)])/ best_result$par[(segment_count+1):(2*segment_count)])
+    beta_final <- best_result$par[1:segment_count]*(1-best_result$par[(segment_count+1):(2*segment_count)])/ best_result$par[(segment_count+1):(2*segment_count)]
     
   } else {
     initial_beta <- pmax(exposure_means$mean_exposure, 0.01)
@@ -185,9 +189,9 @@ optimize_loglikelihood_frequency <- function(dataset, segmentation, with_prior =
       lower = c(0.1),     
       upper = c(10)
     )
-    beta_final <- exp(best_result$par)  
+    beta_final <- best_result$par  
   }
-  
+  print(exposure_means$mean_exposure)
   print(initial_par)
   
   if (print_result) {
