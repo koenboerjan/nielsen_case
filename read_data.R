@@ -375,7 +375,7 @@ read_exposures_frequency <- function(site_id_input = NA) {
         true_age == "gt50_lt65" ~ 3,
         true_age == "gt65" ~ 4
       )
-    ) %>% filter(total_exposures > 0)
+    )
   # Standardize data types in `demographic_groups`
   segments_response_total <- segments_response_total %>%
     mutate(
@@ -387,7 +387,8 @@ read_exposures_frequency <- function(site_id_input = NA) {
         estimated_age == "gt50_lt65" ~ 3,
         estimated_age == "gt65" ~ 4
       )
-    ) %>% filter(total_exposures > 0)
+    )
+  
   
   return(list(segments_response_total_true, segments_response_total))
 }
