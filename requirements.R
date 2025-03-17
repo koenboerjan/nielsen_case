@@ -13,6 +13,7 @@ install_requirements <- function() {
   library(future.apply)
   library(duckdb)
   library(DBI)
+  library(openxlsx)
   source("likelihood_functions.R")
   source("simulate_data.R")
   source("read_data.R")

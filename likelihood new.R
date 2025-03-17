@@ -1,47 +1,4 @@
 
-#--------------------------------Compute True Segment Sizes-------------------------------------
-# compute_true_segment_sizes<-function(dataset,segmentation){
-#   #Delete the observations with NA values
-#   dataset <- dataset %>%
-#     filter(!is.na(true_gender), !is.na(true_age), !is.na(true_demo))
-#   print(head(dataset))
-#   # Summarize response and non-response counts
-#   if (segmentation == "gender") {
-#     segments_response <- dataset %>%
-#       group_by(true_gender) %>%
-#       summarise(
-#         response_count = sum(response),
-#         no_response_count = sum(1 - response),
-#         .groups = 'drop'
-#       )
-#   } else if (segmentation == "age") {
-#     segments_response <- dataset %>%
-#       group_by(true_age) %>%
-#       summarise(
-#         response_count = sum(response),
-#         no_response_count = sum(1 - response),
-#         .groups = 'drop'
-#       )
-#   } else if (segmentation == "demo") {
-#     segments_response <- dataset %>%
-#       group_by(true_demo) %>%
-#       summarise(
-#         response_count = sum(response),
-#         no_response_count = sum(1 - response),
-#         .groups = 'drop'
-#       )
-#   }
-# 
-#   mat_segments_response <- matrix(
-#     c(segments_response$response_count, segments_response$no_response_count),
-#     ncol = 2
-#   )
-# 
-#   print(segments_response)
-# 
-#   return(mat_segments_response)
-# }
-
 # ----------------------------- Compute Log Likelihood for Segments -----------------------------
 loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, true_segments, true_weight, est_weight) {
   log_value_est <- 0
@@ -76,17 +33,8 @@ loglikelihood_segments_based <- function(beta, p_z_given_s, segment_responses, t
       # Log likelihood contribution for this (y_j, z) pair
       log_value_true <- log_value_true + true_segments[z, j] * log(max(p_y_given_z, 1e-10))
       
-      # Debugging output
-      # print(paste("DEBUG: log_value_true at step (z =", z, ", j =", j, "):", 
-      #             "true_segments =", true_segments[z, j], 
-      #             "p_y_given_z =", p_y_given_z, 
-      #             "log_value_true =", log_value_true))
     }
   }
-  # Debugging print
-  # print(paste("true_weight:", true_weight, "est_weight:", est_weight, 
-  #             "log_value_true:", round(log_value_true, 4), 
-  #             "log_value_est:", round(log_value_est, 4)))
   
   return(-true_weight * log_value_true - est_weight * log_value_est)
   
@@ -103,7 +51,7 @@ prepare_setup <- function() {
 prepare_setup()
 
 
-# Load data
+#Read and merge the datasets
 real_dataset<-read_exposures()
 
 # Compute conditional probabilities for gender segmentation
@@ -358,8 +306,9 @@ conditional_probs_full <- compute_p_z_given_s_full(dataset = real_dataset)
 
 
 ##########################################################################################
-#TOTAL COMBINATION ESTIMATIONS
+#COMBINED SEGMENTS ESTIMATIONS
 #Now estimate the conditional probabilities for the full set of demographic combinations
+<<<<<<< HEAD
 <<<<<<< HEAD
 conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
 >>>>>>> 2a58319eb8ab22955090655882a3b80ce6ccbbe9
@@ -368,92 +317,51 @@ print(conditional_probs_full)
 # conditional_probs_full <- compute_p_z_given_s_including_prior(dataset = real_dataset, segmentation = 'full')
 # print(conditional_probs_full)
 >>>>>>> 26cc42abda0b9418c5adf2a80f5f64c0b1340f34
+=======
+>>>>>>> 4d8661d09744ada2af47323259f20d4733f380d6
 
+#Store the observations with known true demographics separately
 segment_responses_full<-real_dataset[[2]]
 true_segments_full<-real_dataset[[1]]
+#Calculate the 40 x 40 conditional matrix for the combined segments
 conditional_probs_full <-p_z_given_s_full()
 print(true_segments_full)
 
+#Make sure the demographic segments appear at the same order in both datasets
 segment_responses_full <- segment_responses_full %>%
   arrange(estimated_demo, estimated_age,estimated_gender)
 true_segments_full<-true_segments_full%>%
   arrange(true_demo, true_age,true_gender)
-  # results_full <- compute_segment_sizes(dataset = real_dataset, segmentation = 'full',use_true_seperate = TRUE)
-# 
-# segment_responses_full <- results_full[[1]]
-# print(segment_responses_full)
-# true_segments_full <- results_full[[2]]
-# print(true_segments_full)
-
+ 
+#In the dataset of users with known true demographics, calculate the fraction of exposed individuals
 segment_data <- true_segments_full %>%
   as.data.frame() %>%
-  mutate(
-    fraction = ifelse((response_count + no_response_count) > 0,
+  mutate(fraction = ifelse((response_count + no_response_count) > 0,
                       response_count / (response_count + no_response_count),
                       0) 
   )
-# print(segment_data)
-# segment_labels <- expand.grid(
-#   true_gender = c(0, 1),
-#   true_age = 1:4,
-#   true_demo = 1:5
-# )
-# 
-# # Bind labels with data
-# segment_data <- cbind(segment_labels, segment_data)
-
-# Print to verify
 print(segment_data)
 
-segment_count_full <- nrow(conditional_probs_full)  
-initial_beta_full <- rep(0, segment_count_full) 
+#Define the zero vector as the initial beta for the optimization
+beta_length <- nrow(conditional_probs_full)  
+initial_beta <- rep(0, beta_length) 
 
 true_segments_full<-as.matrix(true_segments_full[, c("response_count", "no_response_count")])
 segment_responses_full <- as.matrix(segment_responses_full[, c("response_count", "no_response_count")])
 str(segment_responses_full)
 str(true_segments_full)
 
-
-
-# result <- optim(par = initial_beta_full,
-#                 fn = loglikelihood_segments_based,
-#                 p_z_given_s = conditional_probs_full,
-#                 segment_responses = segment_responses_full,
-#                 true_segments = true_segments_full,
-#                 true_weight = 300,
-#                 est_weight = 1,
-#                 control = list(maxit = 1000),
-#                 method = "L-BFGS-B",
-#                 lower=-10,
-#                 upper=0
-#                 )
-# 
-# optimized_beta_full <- result$par
-# result$convergence
-# 
-# # Example usage: Compute probabilities for optimized beta values
-# p_y_given_z <- plogis(optimized_beta_full)
-# print(p_y_given_z)
-# 
-# segment_data <- as.data.frame(segment_data)
-# 
-# # Add probabilities to segment_data
-# probability_df <- segment_data %>%
-#   mutate(p_y_given_z = p_y_given_z) %>%
-#   select(-response_count, -no_response_count)
-
-# Define different values of true_weight to optimize over
+# Define the different values of true_weight
 true_weights <- c(1,10,100,300)  
 
-# Initialize a dataframe to store results
+#Create a dataframe to store results
 probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "fraction")]
 
-# Loop over each true_weight
+#Optimize the loglikelihood for every different 
 for (w in true_weights) {
   
-  # Define optimization function for the current true_weight
   optim_result <- optim(
-    par = initial_beta_full,  # Initial beta values (logit scale)
+    par = initial_beta,
     fn = loglikelihood_segments_based,
     p_z_given_s = conditional_probs_full,
     segment_responses = segment_responses_full,
@@ -466,16 +374,34 @@ for (w in true_weights) {
     upper=0
   )
   
-  # Convert optimized betas into estimated probabilities
   estimated_probs <- plogis(optim_result$par)  
   
-  # Store results in a new column named based on the weight
   probability_df[[paste0("estimated_prob_w", w)]] <- estimated_probs
 }
 
-# Print the final probability_df
+#For every weight, define the differences between the estimated probability and the fraction of exposed individuals
+differences <- data.frame(
+  difference_w1   = probability_df$fraction - probability_df$estimated_prob_w1,
+  difference_w10  = probability_df$fraction - probability_df$estimated_prob_w10,
+  difference_w100 = probability_df$fraction - probability_df$estimated_prob_w100,
+  difference_w300 = probability_df$fraction - probability_df$estimated_prob_w300
+)
+
+differences_long <- pivot_longer(differences, cols = everything(), 
+                                 names_to = "Weight", values_to = "Difference")
+
+# Create separate histograms for each difference
+ggplot(differences_long, aes(x = Difference)) +
+  geom_histogram(binwidth=0.02, fill = "skyblue", color = "black", alpha = 0.7) +
+  facet_wrap(~ Weight, scales = "free") +
+  theme_minimal() +
+  labs(title = "Histograms of Differences (Fraction - Estimated Probabilities)",
+       x = "Difference",
+       y = "Frequency")
+
+# Print the final probability data frame
 print(probability_df)
-library(openxlsx)
-write.xlsx(probability_df, "probabilities_458088.xlsx", rowNames = FALSE)
+
+write.xlsx(probability_df, "probabilities_425736.xlsx", rowNames = FALSE)
 
 
