@@ -119,17 +119,17 @@ for (w in true_weights) {
     upper=0
   )
   
-  estimated_probs <- plogis(optim_result$par)  
+  estimated_probabilities <- plogis(optim_result$par)  
   
-  probability_df[[paste0("estimated_prob_w", w)]] <- estimated_probs
+  probability_df[[paste0("estimated_p_w", w)]] <- estimated_probabilities
 }
 
 #For every weight, define the differences between the estimated probability and the fraction of exposed individuals
 differences <- data.frame(
-  difference_w1   = probability_df$fraction - probability_df$estimated_prob_w1,
-  difference_w10  = probability_df$fraction - probability_df$estimated_prob_w10,
-  difference_w100 = probability_df$fraction - probability_df$estimated_prob_w100,
-  difference_w300 = probability_df$fraction - probability_df$estimated_prob_w300
+  difference_w1   = probability_df$fraction - probability_df$estimated_p_w1,
+  difference_w10  = probability_df$fraction - probability_df$estimated_p_w10,
+  difference_w100 = probability_df$fraction - probability_df$estimated_p_w100,
+  difference_w300 = probability_df$fraction - probability_df$estimated_p_w300
 )
 
 differences_long <- pivot_longer(differences, cols = everything(), 

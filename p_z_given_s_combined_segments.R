@@ -54,6 +54,7 @@ p_z_given_s_full<-function(){
   p_s_given_z <- merged_demos %>%
     group_by(estimated_gender, estimated_age, estimated_demo, true_gender, true_age, true_demo) %>%
     summarise(count = n(), .groups = 'drop') %>%
+    #replace na values with 0
     replace_na(list(count = 0)) %>%
     group_by(true_gender, true_age, true_demo) %>%
     mutate(probability = count / sum(count)) 
@@ -61,6 +62,7 @@ p_z_given_s_full<-function(){
   # Make sure that all combinations exist in our dataset, so that our final matrix will be 40 x 40
   p_s_given_z <- left_join(all_combinations, p_s_given_z,                           
                            by = c("true_gender", "true_age", "true_demo", "estimated_gender", "estimated_age", "estimated_demo")) %>%
+    #replace na values with 0
     replace_na(list(count = 0, probability = 0))
   print(p_s_given_z)
   
@@ -85,6 +87,3 @@ p_z_given_s_full<-function(){
   return(p_z_given_s)
   
 }
-
-
-p_z_given_s_full()
