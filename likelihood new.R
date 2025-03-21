@@ -102,7 +102,7 @@ true_weights <- c(1,10,100,300)
 #Create a dataframe to store results
 probability_df <- segment_data[, c("true_gender", "true_age", "true_demo", "fraction")]
 
-#Optimize the loglikelihood for every different 
+#Optimize the loglikelihood for every different true_weight
 for (w in true_weights) {
   
   optim_result <- optim(

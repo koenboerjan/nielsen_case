@@ -17,7 +17,7 @@ p_z_given_s_full<-function(){
   #Remove observations with unknown true demographics
   merged_demos <- merged_demos %>% filter(!is.na(true_demo) & !is.na(true_age) & !is.na(true_gender))
   
-  #Change the from categorical demographic variables to numeric variables
+  #Change the categorical demographic variables to numeric variables
   merged_demos <- merged_demos %>%
     mutate(
       estimated_gender = ifelse(estimated_gender == "male", 1, 0),
@@ -43,7 +43,7 @@ p_z_given_s_full<-function(){
   p_z <- universe_estimates %>%
     mutate(probability = num_persons / tot_persons)
   
-  # Create all possible combinations for true and estimated demographic
+  # Create all possible combinations for true and estimated demographics
   true_combinations <- expand.grid(true_gender = 0:1, true_age = 1:4, true_demo = 1:5)
   estimated_combinations <- expand.grid(estimated_gender = 0:1, estimated_age = 1:4, estimated_demo = 1:5)
   
@@ -73,7 +73,7 @@ p_z_given_s_full<-function(){
   
   # Compute the matrix with the probabilities P(S,Z)=P(S|Z)*P(Z) 
   p_s_and_z <- p_s_given_z_matrix * p_z$probability
-  #P(S) is calculating by summing across the columns of P(S,Z)
+  #P(S) is calculated by summing across the columns of P(S,Z)
   p_s <- colSums(p_s_and_z)
   #Store the inverses of P(S) into a matrix in order to carry out the division in the next step
   p_s_matrix <- t(matrix(rep((p_s**-1),dim_matrix), ncol = dim_matrix))

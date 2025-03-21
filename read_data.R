@@ -1,10 +1,5 @@
 read_id_graph_demos <- function() {
   data <- fread("other_data/id_graph_demos.csv")
-<<<<<<< HEAD
-  return(data)
-=======
-  return (data)
->>>>>>> 4d8661d09744ada2af47323259f20d4733f380d6
 }
 
 read_panel_demos <- function() {
