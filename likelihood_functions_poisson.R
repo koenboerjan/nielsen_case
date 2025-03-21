@@ -84,15 +84,14 @@ optimize_loglikelihood_poisson <- function(dataset, segmentation, with_prior = T
   } else {
     p_z_given_s <- get(paste0("p_z_given_s_", segmentation, "_without_prior"))
   }
-  
-  # dataset <- dataset %>%
-  #   filter(total_exposures > 0)
-  # 
-  # segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
-  # 
+
+  dataset <- dataset %>%
+    filter(total_exposures > 0)
+
+  segment_levels <- unique(dataset[[segmentation_col]])  # Get unique segment levels
+
   # Compute segment exposures (grouped total exposures)
-  # segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation)
-  segment_exposures <- segments_poisson
+  segment_exposures <- compute_segment_sizes_poisson(dataset, segmentation)
   
   
   # Compute mean exposures for better initial values

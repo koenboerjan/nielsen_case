@@ -1,19 +1,22 @@
+# Simulation study for simulating and plotting 2 segments with varying fractions
+
 simulate_evaluate_fraction_2_segments <- function() {
   fraction_gender_1_log <- c(seq(-10, -2, 0.5), seq(-1.5, -0.1, 0.1))
   fraction_gender_1 <- exp(fraction_gender_1_log)
   exposure <- c(0.03, 0.05)
-  estimation_correctness <- t(matrix(c(0.75, 0.25, 0.3, 0.7), ncol = 2))
-  n_test <- 10**6
+  estimation_correctness <- t(matrix(c(0.8, 0.2, 0.3, 0.7), ncol = 2))
+  n_test <- 10**7
 
   final_results <- data.frame(segment1 = numeric(), segment2 = numeric())
-  for (r in 1:10) {
+  for (r in 1:3) {
     print(r)
     results <- data.frame(segment1 = numeric(), segment2 = numeric())
     for (i in 1:length(fraction_gender_1)) {
+      print(fraction_gender_1[i])
       dataset <- simulate_dataset(n_test = n_test, fraction_per_segment = c(fraction_gender_1[i], 1 - fraction_gender_1[i]), 
                                   exposure_per_segment = exposure, estimation_correctness = estimation_correctness,
                                   segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE)
-      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE)
+      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE, simulation = TRUE)
       results <- rbind(results, exp(optimal_beta$par) / (1 + exp(optimal_beta$par)))
       
     }
@@ -24,7 +27,7 @@ simulate_evaluate_fraction_2_segments <- function() {
     }
   }
   
-  final_results <- final_results/10
+  final_results <- final_results/3
   final_results$x_axis <- fraction_gender_1_log
   
   colnames(final_results) <- c('segment_1', 'segment_2', 'x_axis')
@@ -41,6 +44,9 @@ simulate_evaluate_fraction_2_segments <- function() {
     )
   print(plot1)
 }
+
+
+#Simulation study for 3 segments with varying fractions
 
 simulate_evaluate_fraction_3_segments <- function() {
   fraction_age_1_log <- c(seq(-6, -2, 1), seq(-1.5, -0.1, 0.3))
@@ -170,7 +176,7 @@ simulate_evaluate_fraction_3_segments <- function() {
   print(plot3)
 }
 
-### Simulation study exposure
+### Simulation study for 2 segments with varying exposures
 simulate_evaluate_exposure_2_segments <- function() {
   fraction_gender <- c(0.516, 0.484)
   exposure_1_log <- c(seq(-10, -3, 1),seq(-2.5, -1, 0.5))
@@ -271,7 +277,7 @@ simulate_evaluate_exposure_2_segments <- function() {
 }
 
 
-### Simulation estimation accuracy exposure
+### Simulation study for 2 segments with varing modeling accuracy
 simulate_evaluate_accuracy_2_segments <- function() {
   fraction_gender <- c(0.516, 0.484)
   exposure <- c(0.03, 0.05)
@@ -299,8 +305,8 @@ simulate_evaluate_accuracy_2_segments <- function() {
       estimation_correctness_mat <- as.matrix(t(matrix(accuracy_estimation[i,], ncol = 2)))
       dataset <- simulate_dataset(n_test = n_test, fraction_per_segment = fraction_gender, 
                                   exposure_per_segment = exposure, estimation_correctness = estimation_correctness_mat,
-                                  segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE, simulation = TRUE)
-      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE)
+                                  segmentation = "gender", seed_number = (i*10 + 15*r), print_simulation = FALSE)
+      optimal_beta <- optimize_loglikelihood(dataset, segmentation = 'gender', with_prior = FALSE, print_result = FALSE, simulation = TRUE)
       results <- rbind(results, exp(optimal_beta$par) / (1 + exp(optimal_beta$par)))
       
     }
